@@ -480,7 +480,8 @@
                 } else {
                     throw new Error('Formato de archivo no soportado. Por favor usa CSV, Excel o PDF.');
                 }
-                
+                console.log('🔍 DEBUG: transactionData.length después de processPDF =', transactionData.length);
+                console.log('🔍 DEBUG: transactionData =', transactionData);
                 if (transactionData.length === 0) {
                     pendingFileData = {
                         file: file,
