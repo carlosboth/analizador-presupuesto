@@ -317,23 +317,31 @@
 
         <div id="resultsSection" class="results-section">
             <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-value" id="totalExpenses">$0</div>
-                    <div class="stat-label">Gastos Totales</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="totalTransactions">0</div>
-                    <div class="stat-label">Transacciones</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="avgTransaction">$0</div>
-                    <div class="stat-label">Gasto Promedio</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="topCategory">-</div>
-                    <div class="stat-label">Categoría Principal</div>
-                </div>
-            </div>
+    <div class="stat-card">
+        <div class="stat-value" id="totalIngresos">$0</div>
+        <div class="stat-label">Ingresos Totales</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" id="totalExpenses">$0</div>
+        <div class="stat-label">Gastos Totales</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" id="ahorroReal">$0</div>
+        <div class="stat-label">Ahorro Real</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" id="porcentajeAhorro">0%</div>
+        <div class="stat-label">% de Ahorro</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" id="totalTransactions">0</div>
+        <div class="stat-label">Transacciones</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" id="topCategory">-</div>
+        <div class="stat-label">Categoría Principal</div>
+    </div>
+</div>
 
             <div class="charts-container">
                 <div class="chart-card">
@@ -370,6 +378,7 @@
         let pendingFileData = null;
 
         const categories = {
+            'Ingresos': ['spei recibido', 'deposito', 'depósito', 'transferencia recibida', 'pago de nomina', 'nómina', 'salario', 'sueldo', 'abono', 'intereses', 'rendimiento', 'venta fondos', 'devolucion', 'devolución', 'reembolso', 'cashback', 'deposito de inversion', 'liquidacion'],
             'Alimentación': ['supermercado', 'mercado', 'abarrotes', 'tienda', 'grocery', 'market', 'soriana', 'walmart', 'chedraui', 'oxxo', 'seven', '7-eleven', 'farmacia guadalajara', 'benavides', 'del rio', 'bodega aurrera', 'comercial mexicana', 'coppel'],
             'Restaurantes': ['restaurante', 'restaurant', 'comida', 'food', 'burger', 'pizza', 'taco', 'café', 'coffee', 'bar', 'cantina', 'mc', 'kfc', 'subway', 'dominos', 'uber eats', 'rappi', 'didi food', 'sin delantal', 'starbucks', 'vips', 'sanborns', 'applebees', 'chilis'],
             'Transporte': ['gasolina', 'gas', 'uber', 'taxi', 'metro', 'autobus', 'bus', 'parking', 'estacionamiento', 'pemex', 'shell', 'bp', 'mobil', 'didi', 'beat', 'caseta', 'autopista', 'peaje'],
@@ -623,7 +632,7 @@
                         
                         const amount = parseFloat(montoStr.replace(/[,$]/g, ''));
                         
-                        if (!isNaN(amount) && amount > 0 && isExpenseTransaction(descripcion)) {
+                        if (!isNaN(amount) && amount > 0) {
                             const transaction = {
                                 description: descripcion,
                                 amount: amount,
@@ -656,16 +665,14 @@
                     
                     const isNegative = montoStr.includes('-');
                     if (isNegative && amount > 0) {
-                        if (isExpenseTransaction(descripcion)) {
-                            const transaction = {
-                                description: descripcion.trim(),
-                                amount: amount,
-                                date: parseNuDate(fecha),
-                                category: categorizeTransaction(descripcion)
-                            };
-                            transactionData.push(transaction);
-                        }
-                    }
+    const transaction = {
+        description: descripcion.trim(),
+        amount: amount,
+        date: parseNuDate(fecha),
+        category: categorizeTransaction(descripcion)
+    };
+    transactionData.push(transaction);
+}
                 }
             }
             
@@ -690,7 +697,7 @@
                         const descripcion = line.replace(fecha, '').replace(montoMatch[0], '').trim();
                         const amount = parseFloat(montoMatch[1].replace(/,/g, ''));
                         
-                        if (!isNaN(amount) && amount > 0 && isExpenseTransaction(descripcion)) {
+                        if (!isNaN(amount) && amount > 0) {
                             const transaction = {
                                 description: descripcion,
                                 amount: amount,
@@ -724,7 +731,7 @@
                         const descripcion = line.replace(fecha, '').replace(montoMatch[0], '').trim();
                         const amount = parseFloat(montoMatch[1].replace(/,/g, ''));
                         
-                        if (!isNaN(amount) && amount > 0 && isExpenseTransaction(descripcion)) {
+                        if (!isNaN(amount) && amount > 0) {
                             const transaction = {
                                 description: descripcion,
                                 amount: amount,
@@ -807,53 +814,53 @@
             return new Date();
         }
 
-        function parseTransaction(headers, values) {
-            const transaction = {};
-            
-            const descriptionFields = ['descripcion', 'descripción', 'concepto', 'description', 'merchant', 'comercio', 'movimiento'];
-            const amountFields = ['monto', 'importe', 'amount', 'cantidad', 'cargo', 'abono', 'importe neto'];
-            const dateFields = ['fecha', 'date', 'dia'];
-            
-            let description = '';
-            let amount = 0;
-            let date = new Date();
-            
-            headers.forEach((header, index) => {
-                const value = values[index];
-                const headerLower = String(header || '').toLowerCase().trim();
-                
-                if (descriptionFields.some(field => headerLower.includes(field))) {
-                    description = String(value || '');
-                }
-                
-                if (amountFields.some(field => headerLower.includes(field))) {
-                    const cleanValue = String(value || '0').replace(/[,$\s]/g, '');
-                    const numValue = parseFloat(cleanValue);
-                    if (!isNaN(numValue) && Math.abs(numValue) > Math.abs(amount)) {
-                        amount = numValue;
-                    }
-                }
-                
-                if (dateFields.some(field => headerLower.includes(field))) {
-                    const dateValue = parseBBVADate(value);
-                    if (dateValue && !isNaN(dateValue.getTime())) {
-                        date = dateValue;
-                    }
-                }
-            });
-            
-            if (description && Math.abs(amount) > 0 && isExpenseTransaction(description)) {
-                return {
-                    description: description,
-                    amount: Math.abs(amount),
-                    date: date,
-                    category: categorizeTransaction(description)
-                };
-            }
-            
-            return null;
+       function parseTransaction(headers, values) {
+    const transaction = {};
+    
+    const descriptionFields = ['descripcion', 'descripción', 'concepto', 'description', 'merchant', 'comercio', 'movimiento'];
+    const amountFields = ['monto', 'importe', 'amount', 'cantidad', 'cargo', 'abono', 'importe neto'];
+    const dateFields = ['fecha', 'date', 'dia'];
+    
+    let description = '';
+    let amount = 0;
+    let date = new Date();
+    
+    headers.forEach((header, index) => {
+        const value = values[index];
+        const headerLower = String(header || '').toLowerCase().trim();
+        
+        if (descriptionFields.some(field => headerLower.includes(field))) {
+            description = String(value || '');
         }
-
+        
+        if (amountFields.some(field => headerLower.includes(field))) {
+            const cleanValue = String(value || '0').replace(/[,$\s]/g, '');
+            const numValue = parseFloat(cleanValue);
+            if (!isNaN(numValue) && Math.abs(numValue) > Math.abs(amount)) {
+                amount = numValue;
+            }
+        }
+        
+        if (dateFields.some(field => headerLower.includes(field))) {
+            const dateValue = parseBBVADate(value);
+            if (dateValue && !isNaN(dateValue.getTime())) {
+                date = dateValue;
+            }
+        }
+    });
+    
+    // CAMBIO PRINCIPAL: Procesar TODAS las transacciones
+    if (description && Math.abs(amount) > 0) {
+        return {
+            description: description,
+            amount: Math.abs(amount),
+            date: date,
+            category: categorizeTransaction(description)
+        };
+    }
+    
+    return null;
+}
         function parseBBVADate(dateStr) {
             if (!dateStr) return new Date();
             
@@ -886,25 +893,6 @@
             return new Date();
         }
 
-        function isExpenseTransaction(description) {
-            const desc = description.toLowerCase();
-            
-            const incomeKeywords = [
-                'spei recibido', 'deposito', 'depósito', 'transferencia recibida',
-                'pago de nomina', 'nómina', 'salario', 'sueldo', 'abono',
-                'intereses', 'rendimiento', 'devolucion', 'devolución',
-                'reembolso', 'cashback'
-            ];
-            
-            for (const keyword of incomeKeywords) {
-                if (desc.includes(keyword)) {
-                    return false;
-                }
-            }
-            
-            return true;
-        }
-
         function categorizeTransaction(description) {
             const desc = description.toLowerCase();
             
@@ -922,29 +910,51 @@
         }
         // Analysis and visualization functions
         function analyzeData() {
-            const totalExpenses = transactionData.reduce((sum, t) => sum + t.amount, 0);
-            const totalTransactions = transactionData.length;
-            const avgTransaction = totalExpenses / totalTransactions;
-            
-            const categoryTotals = {};
-            transactionData.forEach(t => {
-                categoryTotals[t.category] = (categoryTotals[t.category] || 0) + t.amount;
-            });
-            
-            const topCategory = Object.keys(categoryTotals).reduce((a, b) => 
-                categoryTotals[a] > categoryTotals[b] ? a : b
-            );
-            
-            document.getElementById('totalExpenses').textContent = `$${totalExpenses.toLocaleString()}`;
-            document.getElementById('totalTransactions').textContent = totalTransactions.toLocaleString();
-            document.getElementById('avgTransaction').textContent = `$${avgTransaction.toLocaleString()}`;
-            document.getElementById('topCategory').textContent = topCategory;
-            
-            createCategoryChart(categoryTotals);
-            createTrendChart();
-            createBudgetSuggestions(categoryTotals, totalExpenses);
-        }
-
+    // Separar ingresos y gastos
+    const ingresos = transactionData.filter(t => t.category === 'Ingresos');
+    const gastos = transactionData.filter(t => t.category !== 'Ingresos');
+    
+    const totalIngresos = ingresos.reduce((sum, t) => sum + t.amount, 0);
+    const totalGastos = gastos.reduce((sum, t) => sum + t.amount, 0);
+    const totalTransactions = transactionData.length;
+    
+    // Calcular métricas financieras
+    const ahorroReal = totalIngresos - totalGastos;
+    const porcentajeAhorro = totalIngresos > 0 ? ((ahorroReal / totalIngresos) * 100) : 0;
+    const avgTransaction = totalGastos / gastos.length;
+    
+    // Categorizar solo gastos para el análisis
+    const categoryTotals = {};
+    gastos.forEach(t => {
+        categoryTotals[t.category] = (categoryTotals[t.category] || 0) + t.amount;
+    });
+    
+    const topCategory = Object.keys(categoryTotals).length > 0 ? 
+        Object.keys(categoryTotals).reduce((a, b) => 
+            categoryTotals[a] > categoryTotals[b] ? a : b
+        ) : 'N/A';
+    
+    // Actualizar métricas en pantalla
+    document.getElementById('totalExpenses').textContent = `$${totalGastos.toLocaleString()}`;
+    document.getElementById('totalTransactions').textContent = totalTransactions.toLocaleString();
+    document.getElementById('avgTransaction').textContent = `$${avgTransaction.toLocaleString()}`;
+    document.getElementById('topCategory').textContent = topCategory;
+    
+    // Agregar nuevas métricas si existen los elementos
+    if (document.getElementById('totalIngresos')) {
+        document.getElementById('totalIngresos').textContent = `$${totalIngresos.toLocaleString()}`;
+    }
+    if (document.getElementById('ahorroReal')) {
+        document.getElementById('ahorroReal').textContent = `$${ahorroReal.toLocaleString()}`;
+    }
+    if (document.getElementById('porcentajeAhorro')) {
+        document.getElementById('porcentajeAhorro').textContent = `${porcentajeAhorro.toFixed(1)}%`;
+    }
+    
+    createCategoryChart(categoryTotals);
+    createTrendChart();
+    createBudgetSuggestions(categoryTotals, totalGastos, totalIngresos);
+}
         function createCategoryChart(categoryTotals) {
             const ctx = document.getElementById('categoryChart').getContext('2d');
             
@@ -1034,30 +1044,56 @@
             });
         }
 
-        function createBudgetSuggestions(categoryTotals, totalExpenses) {
-            const budgetContainer = document.getElementById('budgetCategories');
-            budgetContainer.innerHTML = '';
-            
-            const improvementFactor = 0.9;
-            
-            Object.entries(categoryTotals).forEach(([category, amount]) => {
-                const suggestedAmount = Math.round(amount * improvementFactor);
-                const percentage = ((amount / totalExpenses) * 100).toFixed(1);
-                
-                const budgetItem = document.createElement('div');
-                budgetItem.className = 'budget-item';
-                budgetItem.innerHTML = `
-                    <div>
-                        <div class="category-name">${category}</div>
-                        <div style="font-size: 0.9rem; color: #718096;">${percentage}% del total</div>
-                    </div>
-                    <div class="budget-amount">$${suggestedAmount.toLocaleString()}</div>
-                `;
-                
-                budgetContainer.appendChild(budgetItem);
-            });
-        }
-    </script>
+        function createBudgetSuggestions(categoryTotals, totalExpenses, totalIngresos = 0) {
+    const budgetContainer = document.getElementById('budgetCategories');
+    budgetContainer.innerHTML = '';
+    
+    // Mostrar análisis de ingresos vs gastos si hay ingresos
+    if (totalIngresos > 0) {
+        const ratioGastos = ((totalExpenses / totalIngresos) * 100).toFixed(1);
+        const ahorroSugerido = totalIngresos * 0.2; // 20% de ahorro recomendado
+        const gastoMaximo = totalIngresos * 0.8; // 80% máximo en gastos
+        
+        const summaryItem = document.createElement('div');
+        summaryItem.className = 'budget-item';
+        summaryItem.style.gridColumn = '1 / -1';
+        summaryItem.style.background = ratioGastos > 80 ? 'rgba(255, 99, 132, 0.1)' : 'rgba(75, 192, 192, 0.1)';
+        summaryItem.innerHTML = `
+            <div>
+                <div class="category-name">📊 Análisis Financiero</div>
+                <div style="font-size: 0.9rem; color: #718096;">
+                    Gastas ${ratioGastos}% de tus ingresos • 
+                    ${ratioGastos > 80 ? '⚠️ Riesgo alto' : ratioGastos > 60 ? '⚡ Moderado' : '✅ Saludable'}
+                </div>
+            </div>
+            <div style="text-align: right;">
+                <div style="font-size: 0.9rem; color: #718096;">Ahorro sugerido</div>
+                <div class="budget-amount">$${ahorroSugerido.toLocaleString()}</div>
+            </div>
+        `;
+        budgetContainer.appendChild(summaryItem);
+    }
+    
+    const improvementFactor = 0.9;
+    
+    Object.entries(categoryTotals).forEach(([category, amount]) => {
+        const suggestedAmount = Math.round(amount * improvementFactor);
+        const percentage = totalExpenses > 0 ? ((amount / totalExpenses) * 100).toFixed(1) : 0;
+        
+        const budgetItem = document.createElement('div');
+        budgetItem.className = 'budget-item';
+        budgetItem.innerHTML = `
+            <div>
+                <div class="category-name">${category}</div>
+                <div style="font-size: 0.9rem; color: #718096;">${percentage}% del total</div>
+            </div>
+            <div class="budget-amount">$${suggestedAmount.toLocaleString()}</div>
+        `;
+        
+        budgetContainer.appendChild(budgetItem);
+    });
+}
+</script>
 </body>
 </html>
         
