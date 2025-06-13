@@ -614,39 +614,102 @@
         }
         // Bank-specific PDF processors
         async function processBBVAPDF(text) {
-            const lines = text.split('\n');
-            transactionData = [];
+    const lines = text.split('\n');
+    transactionData = [];
+    
+    // Patrones mejorados para diferentes formatos de BBVA
+    const fullTransactionPattern = /(\d{1,2}\/[A-Z]{3})\s+(\d{1,2}\/[A-Z]{3})\s+(.+?)\s+([\d,]+\.?\d*)\s*$/;
+    const simpleTransactionPattern = /(\d{1,2}\/[A-Z]{3})\s+(.+?)\s+([\d,]+\.?\d*)\s*$/;
+    const datePattern = /(\d{1,2}\/[A-Z]{3})/;
+    
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        
+        // Saltar líneas de encabezado
+        if (line.includes('FECHA') || line.includes('DESCRIPCION') || line.includes('REFERENCIA') || line.length < 10) {
+            continue;
+        }
+        
+        let transaction = null;
+        
+        // Patrón 1: FECHA FECHA DESCRIPCION MONTO (formato completo)
+        const fullMatch = line.match(fullTransactionPattern);
+        if (fullMatch) {
+            const [_, fechaOper, fechaLiq, descripcion, montoStr] = fullMatch;
+            const amount = parseFloat(montoStr.replace(/[,$]/g, ''));
             
-            const datePattern = /(\d{1,2}\/[A-Z]{3})/;
-            
-            for (let i = 0; i < lines.length; i++) {
-                const line = lines[i].trim();
+            if (!isNaN(amount) && amount > 0 && descripcion.length > 3) {
+                transaction = {
+                    description: descripcion.trim(),
+                    amount: amount,
+                    date: parseBBVADate(fechaOper),
+                    category: categorizeTransaction(descripcion)
+                };
+            }
+        }
+        // Patrón 2: FECHA DESCRIPCION MONTO (formato simple)
+        else if (!fullMatch) {
+            const simpleMatch = line.match(simpleTransactionPattern);
+            if (simpleMatch) {
+                const [_, fecha, descripcion, montoStr] = simpleMatch;
+                const amount = parseFloat(montoStr.replace(/[,$]/g, ''));
                 
-                const dateMatch = line.match(datePattern);
-                if (dateMatch) {
-                    const parts = line.split(' ');
-                    if (parts.length >= 3) {
-                        const fecha = parts[0];
-                        const descripcion = parts.slice(1, -1).join(' ');
-                        const montoStr = parts[parts.length - 1];
-                        
-                        const amount = parseFloat(montoStr.replace(/[,$]/g, ''));
-                        
-                        if (!isNaN(amount) && amount > 0) {
-                            const transaction = {
-                                description: descripcion,
-                                amount: amount,
-                                date: parseBBVADate(fecha),
-                                category: categorizeTransaction(descripcion)
-                            };
-                            transactionData.push(transaction);
-                        }
+                if (!isNaN(amount) && amount > 0 && descripcion.length > 3) {
+                    transaction = {
+                        description: descripcion.trim(),
+                        amount: amount,
+                        date: parseBBVADate(fecha),
+                        category: categorizeTransaction(descripcion)
+                    };
+                }
+            }
+        }
+        
+        // Patrón 3: Busqueda flexible para líneas que contengan fecha y monto
+        if (!transaction && datePattern.test(line)) {
+            const montoMatches = line.match(/([\d,]+\.?\d*)/g);
+            if (montoMatches && montoMatches.length > 0) {
+                // Tomar el último número como monto
+                const montoStr = montoMatches[montoMatches.length - 1];
+                const amount = parseFloat(montoStr.replace(/[,$]/g, ''));
+                
+                if (!isNaN(amount) && amount > 0) {
+                    // Extraer descripción eliminando fecha y monto
+                    let descripcion = line;
+                    const fechaMatch = line.match(datePattern);
+                    if (fechaMatch) {
+                        descripcion = descripcion.replace(fechaMatch[0], '');
+                    }
+                    descripcion = descripcion.replace(montoStr, '').trim();
+                    
+                    if (descripcion.length > 3) {
+                        transaction = {
+                            description: descripcion,
+                            amount: amount,
+                            date: parseBBVADate(fechaMatch[0]),
+                            category: categorizeTransaction(descripcion)
+                        };
                     }
                 }
             }
-            
-            console.log(`BBVA: Procesadas ${transactionData.length} transacciones`);
         }
+        
+        // Agregar transacción si es válida
+        if (transaction) {
+            transactionData.push(transaction);
+        }
+    }
+    
+    console.log(`BBVA Mejorado: Procesadas ${transactionData.length} transacciones`);
+    
+    // Debug: mostrar primeras transacciones encontradas
+    if (transactionData.length > 0) {
+        console.log('Primeras 3 transacciones encontradas:');
+        transactionData.slice(0, 3).forEach((t, i) => {
+            console.log(`${i+1}. ${t.description} - $${t.amount} - ${t.category}`);
+        });
+    }
+}
 
         async function processNuPDF(text) {
             const lines = text.split('\n');
