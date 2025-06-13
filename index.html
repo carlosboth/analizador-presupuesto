@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analizador de Presupuesto Personal</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .upload-section {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 40px;
+            margin-bottom: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 60px 20px;
+            text-align: center;
+            background: linear-gradient(45deg, #f8f9ff, #e8f0ff);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .upload-area:hover {
+            border-color: #5a67d8;
+            background: linear-gradient(45deg, #f0f4ff, #dde7ff);
+            transform: translateY(-2px);
+        }
+
+        .upload-area.dragover {
+            border-color: #4c51bf;
+            background: linear-gradient(45deg, #e6f3ff, #cce7ff);
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            color: #667eea;
+        }
+
+        .upload-text {
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+            color: #4a5568;
+            font-weight: 600;
+        }
+
+        .upload-hint {
+            color: #718096;
+            margin-bottom: 20px;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 25px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .results-section {
+            display: none;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 40px;
+            margin-bottom: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #4facfe, #00f2fe);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 10px 20px rgba(79, 172, 254, 0.3);
+            transform: translateY(0);
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .charts-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .chart-card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.08);
+        }
+
+        .chart-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #2d3748;
+            text-align: center;
+        }
+
+        .budget-section {
+            background: linear-gradient(135deg, #a8edea, #fed6e3);
+            padding: 30px;
+            border-radius: 15px;
+            margin-top: 30px;
+        }
+
+        .budget-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #2d3748;
+            text-align: center;
+        }
+
+        .budget-categories {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .budget-item {
+            background: rgba(255, 255, 255, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .category-name {
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        .budget-amount {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+            font-size: 1.2rem;
+        }
+
+        .error {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+            .charts-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💰 Analizador de Presupuesto Personal</h1>
+            <p>Herramienta gratuita para analizar tus finanzas personales</p>
+            <p style="font-size: 1rem; margin-top: 10px; opacity: 0.8;">
+                Sube tu estado de cuenta y obtén un análisis completo de tus gastos con recomendaciones personalizadas
+            </p>
+        </div>
+
+        <div class="upload-section">
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📊</div>
+                <div class="upload-text">Arrastra tu archivo aquí o haz clic para seleccionar</div>
+                <div class="upload-hint">Soporta archivos Excel (.xlsx), CSV y PDF</div>
+                <button class="btn" onclick="document.getElementById('fileInput').click()">
+                    Seleccionar Archivo
+                </button>
+                <input type="file" id="fileInput" class="file-input" accept=".xlsx,.xls,.csv,.pdf">
+            </div>
+        </div>
+
+        <div id="loadingSection" class="loading" style="display: none;">
+            <div>⏳ Procesando tu archivo...</div>
+        </div>
+
+        <div id="errorSection" class="error" style="display: none;"></div>
+
+        <div id="resultsSection" class="results-section">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalExpenses">$0</div>
+                    <div class="stat-label">Gastos Totales</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalTransactions">0</div>
+                    <div class="stat-label">Transacciones</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="avgTransaction">$0</div>
+                    <div class="stat-label">Gasto Promedio</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="topCategory">-</div>
+                    <div class="stat-label">Categoría Principal</div>
+                </div>
+            </div>
+
+            <div class="charts-container">
+                <div class="chart-card">
+                    <div class="chart-title">Gastos por Categoría</div>
+                    <canvas id="categoryChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-title">Tendencia Mensual</div>
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+
+            <div class="budget-section">
+                <div class="budget-title">🎯 Presupuesto Sugerido (Mensual)</div>
+                <p style="text-align: center; margin-bottom: 20px; color: #4a5568;">
+                    Basado en tu historial de gastos, con un objetivo de optimización del 10%
+                </p>
+                <div class="budget-categories" id="budgetCategories">
+                    <!-- Se llenará dinámicamente -->
+                </div>
+            </div>
+
+            <div style="text-align: center; margin-top: 30px; padding: 20px; background: rgba(255,255,255,0.9); border-radius: 10px;">
+                <p style="color: #718096; font-size: 0.9rem;">
+                    💡 <strong>Tip:</strong> Esta herramienta analiza tus patrones de gasto históricos. 
+                    Para mejores resultados, usa datos de al menos 3 meses.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let transactionData = [];
+        let categoryChart = null;
+        let trendChart = null;
+
+        // Configuración de categorías
+        const categories = {
+            'Alimentación': ['supermercado', 'mercado', 'abarrotes', 'tienda', 'grocery', 'market', 'soriana', 'walmart', 'chedraui', 'oxxo', 'seven', '7-eleven'],
+            'Restaurantes': ['restaurante', 'restaurant', 'comida', 'food', 'burger', 'pizza', 'taco', 'café', 'coffee', 'bar', 'cantina', 'mc', 'kfc', 'subway', 'dominos'],
+            'Transporte': ['gasolina', 'gas', 'uber', 'taxi', 'metro', 'autobus', 'bus', 'parking', 'estacionamiento', 'pemex', 'shell', 'bp'],
+            'Entretenimiento': ['cine', 'cinema', 'netflix', 'spotify', 'juego', 'game', 'teatro', 'concierto', 'club', 'gym', 'deporte'],
+            'Servicios': ['luz', 'agua', 'gas', 'telefono', 'internet', 'cable', 'netflix', 'spotify', 'servicio', 'cfe', 'telmex', 'telcel'],
+            'Salud': ['farmacia', 'hospital', 'doctor', 'medicina', 'dental', 'laboratorio', 'clinica', 'seguro'],
+            'Compras': ['amazon', 'mercadolibre', 'liverpool', 'palacio', 'sears', 'tienda', 'ropa', 'zapatos', 'electronico'],
+            'Efectivo': ['atm', 'cajero', 'retiro', 'efectivo', 'cash'],
+            'Otros': []
+        };
+
+        // Event listeners
+        document.getElementById('fileInput').addEventListener('change', handleFileSelect);
+        
+        const uploadArea = document.getElementById('uploadArea');
+        uploadArea.addEventListener('dragover', handleDragOver);
+        uploadArea.addEventListener('dragleave', handleDragLeave);
+        uploadArea.addEventListener('drop', handleDrop);
+        uploadArea.addEventListener('click', () => document.getElementById('fileInput').click());
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        }
+
+        function handleDragLeave(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                processFile(files[0]);
+            }
+        }
+
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) {
+                processFile(file);
+            }
+        }
+
+        function showLoading() {
+            document.getElementById('loadingSection').style.display = 'block';
+            document.getElementById('resultsSection').style.display = 'none';
+            document.getElementById('errorSection').style.display = 'none';
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingSection').style.display = 'none';
+        }
+
+        function showError(message) {
+            document.getElementById('errorSection').textContent = message;
+            document.getElementById('errorSection').style.display = 'block';
+            hideLoading();
+        }
+
+        function showResults() {
+            document.getElementById('resultsSection').style.display = 'block';
+            hideLoading();
+        }
+
+        async function processFile(file) {
+            showLoading();
+            
+            try {
+                const fileExtension = file.name.split('.').pop().toLowerCase();
+                
+                if (fileExtension === 'csv') {
+                    await processCSV(file);
+                } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
+                    await processExcel(file);
+                } else if (fileExtension === 'pdf') {
+                    await processPDF(file);
+                } else {
+                    throw new Error('Formato de archivo no soportado. Por favor usa CSV, Excel o PDF.');
+                }
+                
+                if (transactionData.length === 0) {
+                    throw new Error('No se encontraron transacciones en el archivo.');
+                }
+                
+                analyzeData();
+                showResults();
+                
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+
+        async function processCSV(file) {
+            const text = await file.text();
+            const lines = text.split('\n');
+            
+            if (lines.length < 2) {
+                throw new Error('El archivo CSV debe tener al menos una línea de encabezado y una de datos.');
+            }
+            
+            const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+            transactionData = [];
+            
+            for (let i = 1; i < lines.length; i++) {
+                if (lines[i].trim()) {
+                    const values = lines[i].split(',');
+                    const transaction = parseTransaction(headers, values);
+                    if (transaction) {
+                        transactionData.push(transaction);
+                    }
+                }
+            }
+        }
+
+        async function processExcel(file) {
+            const data = await file.arrayBuffer();
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            
+            if (jsonData.length < 2) {
+                throw new Error('El archivo Excel debe tener al menos una línea de encabezado y una de datos.');
+            }
+            
+            const headers = jsonData[0].map(h => String(h).trim().toLowerCase());
+            transactionData = [];
+            
+            for (let i = 1; i < jsonData.length; i++) {
+                if (jsonData[i].length > 0) {
+                    const transaction = parseTransaction(headers, jsonData[i]);
+                    if (transaction) {
+                        transactionData.push(transaction);
+                    }
+                }
+            }
+        }
+
+        async function processPDF(file) {
+            // Simulación de procesamiento de PDF
+            // En una implementación real, aquí extraerías el texto del PDF
+            showError('El procesamiento de PDF está en desarrollo. Por favor usa archivos Excel o CSV por ahora.');
+        }
+
+        function parseTransaction(headers, values) {
+            const transaction = {};
+            
+            // Buscar columnas relevantes
+            const descriptionFields = ['descripcion', 'concepto', 'description', 'merchant', 'comercio'];
+            const amountFields = ['monto', 'importe', 'amount', 'cantidad', 'cargo', 'abono'];
+            const dateFields = ['fecha', 'date', 'dia'];
+            
+            let description = '';
+            let amount = 0;
+            let date = new Date();
+            
+            headers.forEach((header, index) => {
+                const value = values[index];
+                
+                if (descriptionFields.some(field => header.includes(field))) {
+                    description = String(value || '');
+                }
+                
+                if (amountFields.some(field => header.includes(field))) {
+                    const numValue = parseFloat(String(value || '0').replace(/[,$]/g, ''));
+                    if (!isNaN(numValue) && Math.abs(numValue) > Math.abs(amount)) {
+                        amount = numValue;
+                    }
+                }
+                
+                if (dateFields.some(field => header.includes(field))) {
+                    const dateValue = new Date(value);
+                    if (!isNaN(dateValue.getTime())) {
+                        date = dateValue;
+                    }
+                }
+            });
+            
+            if (description && Math.abs(amount) > 0) {
+                return {
+                    description: description,
+                    amount: Math.abs(amount), // Usar valor absoluto para gastos
+                    date: date,
+                    category: categorizeTransaction(description)
+                };
+            }
+            
+            return null;
+        }
+
+        function categorizeTransaction(description) {
+            const desc = description.toLowerCase();
+            
+            for (const [category, keywords] of Object.entries(categories)) {
+                if (category === 'Otros') continue;
+                
+                for (const keyword of keywords) {
+                    if (desc.includes(keyword)) {
+                        return category;
+                    }
+                }
+            }
+            
+            return 'Otros';
+        }
+
+        function analyzeData() {
+            // Calcular estadísticas
+            const totalExpenses = transactionData.reduce((sum, t) => sum + t.amount, 0);
+            const totalTransactions = transactionData.length;
+            const avgTransaction = totalExpenses / totalTransactions;
+            
+            // Agrupar por categorías
+            const categoryTotals = {};
+            transactionData.forEach(t => {
+                categoryTotals[t.category] = (categoryTotals[t.category] || 0) + t.amount;
+            });
+            
+            const topCategory = Object.keys(categoryTotals).reduce((a, b) => 
+                categoryTotals[a] > categoryTotals[b] ? a : b
+            );
+            
+            // Actualizar estadísticas
+            document.getElementById('totalExpenses').textContent = `$${totalExpenses.toLocaleString()}`;
+            document.getElementById('totalTransactions').textContent = totalTransactions.toLocaleString();
+            document.getElementById('avgTransaction').textContent = `$${avgTransaction.toLocaleString()}`;
+            document.getElementById('topCategory').textContent = topCategory;
+            
+            // Crear gráficos
+            createCategoryChart(categoryTotals);
+            createTrendChart();
+            createBudgetSuggestions(categoryTotals, totalExpenses);
+        }
+
+        function createCategoryChart(categoryTotals) {
+            const ctx = document.getElementById('categoryChart').getContext('2d');
+            
+            if (categoryChart) {
+                categoryChart.destroy();
+            }
+            
+            const colors = [
+                '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
+                '#9966FF', '#FF9F40', '#FF6384', '#C9CBCF'
+            ];
+            
+            categoryChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(categoryTotals),
+                    datasets: [{
+                        data: Object.values(categoryTotals),
+                        backgroundColor: colors,
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+
+        function createTrendChart() {
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            
+            if (trendChart) {
+                trendChart.destroy();
+            }
+            
+            // Agrupar por mes
+            const monthlyData = {};
+            transactionData.forEach(t => {
+                const monthKey = t.date.toISOString().substring(0, 7);
+                monthlyData[monthKey] = (monthlyData[monthKey] || 0) + t.amount;
+            });
+            
+            const sortedMonths = Object.keys(monthlyData).sort();
+            
+            trendChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: sortedMonths.map(month => {
+                        const date = new Date(month + '-01');
+                        return date.toLocaleDateString('es-ES', { year: 'numeric', month: 'short' });
+                    }),
+                    datasets: [{
+                        label: 'Gastos Mensuales',
+                        data: sortedMonths.map(month => monthlyData[month]),
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createBudgetSuggestions(categoryTotals, totalExpenses) {
+            const budgetContainer = document.getElementById('budgetCategories');
+            budgetContainer.innerHTML = '';
+            
+            // Calcular presupuesto sugerido (con un margen de mejora del 10%)
+            const improvementFactor = 0.9;
+            
+            Object.entries(categoryTotals).forEach(([category, amount]) => {
+                const suggestedAmount = Math.round(amount * improvementFactor);
+                const percentage = ((amount / totalExpenses) * 100).toFixed(1);
+                
+                const budgetItem = document.createElement('div');
+                budgetItem.className = 'budget-item';
+                budgetItem.innerHTML = `
+                    <div>
+                        <div class="category-name">${category}</div>
+                        <div style="font-size: 0.9rem; color: #718096;">${percentage}% del total</div>
+                    </div>
+                    <div class="budget-amount">$${suggestedAmount.toLocaleString()}</div>
+                `;
+                
+                budgetContainer.appendChild(budgetItem);
+            });
+        }
+    </script>
+</body>
+</html>
