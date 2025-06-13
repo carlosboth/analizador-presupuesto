@@ -282,8 +282,7 @@
         </div>
 
         <div id="errorSection" class="error" style="display: none;"></div>
-
-        <div id="pendingSection" class="results-section" style="display: none;">
+<div id="pendingSection" class="results-section" style="display: none;">
             <div style="text-align: center; margin-bottom: 30px;">
                 <div style="font-size: 3rem; margin-bottom: 20px;">⏳</div>
                 <h2 style="color: #667eea; margin-bottom: 20px;">Archivo en proceso</h2>
@@ -377,7 +376,6 @@
             'Transferencias': ['spei enviado', 'transferencia', 'pago cuenta tercero', 'pago a tercero', 'envio', 'transferencia enviada'],
             'Otros': []
         };
-
         // Event listeners
         document.getElementById('fileInput').addEventListener('change', handleFileSelect);
         
@@ -520,7 +518,6 @@
         function generateFileId() {
             return 'file_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
         }
-
         // File processing functions
         async function processCSV(file) {
             const text = await file.text();
@@ -601,7 +598,6 @@
                 throw new Error('Error al procesar el PDF. Asegúrate de que sea un estado de cuenta válido.');
             }
         }
-
         // Bank-specific PDF processors
         async function processBBVAPDF(text) {
             const lines = text.split('\n');
@@ -623,45 +619,6 @@
                         const amount = parseFloat(montoStr.replace(/[,$]/g, ''));
                         
                         if (!isNaN(amount) && amount > 0 && isExpenseTransaction(descripcion)) {
-                            const transaction = {
-                                description: descripcion,
-                                amount: amount,
-                                date: new Date(fecha.replace(/-/g, '/')),
-                                category: categorizeTransaction(descripcion)
-                            };
-                            transactionData.push(transaction);
-                        }
-                    }
-                }
-            }
-            
-            console.log(`Banorte: Procesadas ${transactionData.length} transacciones`);
-        }
-
-        async function processGenericPDF(text) {
-            const lines = text.split('\n');
-            transactionData = [];
-            
-            const datePatterns = [
-                /(\d{1,2}\/\d{1,2}\/\d{4})/,
-                /(\d{1,2}-\d{1,2}-\d{4})/,
-                /(\d{1,2} [A-Z]{3} \d{4})/,
-                /(\d{1,2}\/[A-Z]{3}\/\d{4})/
-            ];
-            
-            for (let i = 0; i < lines.length; i++) {
-                const line = lines[i].trim();
-                
-                let dateFound = null;
-                for (const pattern of datePatterns) {
-                    const match = line.match(pattern);
-                    if (match) {
-                        dateFound = match[1];
-                        break;
-                    }
-                }
-                
-                if (dateFound && line.includes('cion)) {
                             const transaction = {
                                 description: descripcion,
                                 amount: amount,
@@ -762,7 +719,46 @@
                         const descripcion = line.replace(fecha, '').replace(montoMatch[0], '').trim();
                         const amount = parseFloat(montoMatch[1].replace(/,/g, ''));
                         
-                        if (!isNaN(amount) && amount > 0 && isExpenseTransaction(descrip)) {
+                        if (!isNaN(amount) && amount > 0 && isExpenseTransaction(descripcion)) {
+                            const transaction = {
+                                description: descripcion,
+                                amount: amount,
+                                date: new Date(fecha.replace(/-/g, '/')),
+                                category: categorizeTransaction(descripcion)
+                            };
+                            transactionData.push(transaction);
+                        }
+                    }
+                }
+            }
+            
+            console.log(`Banorte: Procesadas ${transactionData.length} transacciones`);
+        }
+
+        async function processGenericPDF(text) {
+            const lines = text.split('\n');
+            transactionData = [];
+            
+            const datePatterns = [
+                /(\d{1,2}\/\d{1,2}\/\d{4})/,
+                /(\d{1,2}-\d{1,2}-\d{4})/,
+                /(\d{1,2} [A-Z]{3} \d{4})/,
+                /(\d{1,2}\/[A-Z]{3}\/\d{4})/
+            ];
+            
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                
+                let dateFound = null;
+                for (const pattern of datePatterns) {
+                    const match = line.match(pattern);
+                    if (match) {
+                        dateFound = match[1];
+                        break;
+                    }
+                }
+                
+                if (dateFound && line.includes('$')) {
                     const montoMatch = line.match(/\$?([\d,]+\.?\d*)/);
                     
                     if (montoMatch) {
@@ -784,7 +780,6 @@
             
             console.log(`Genérico: Procesadas ${transactionData.length} transacciones`);
         }
-
         // Utility functions
         function parseNuDate(dateStr) {
             const parts = dateStr.split(' ');
@@ -920,7 +915,6 @@
             
             return 'Otros';
         }
-
         // Analysis and visualization functions
         function analyzeData() {
             const totalExpenses = transactionData.reduce((sum, t) => sum + t.amount, 0);
@@ -936,9 +930,9 @@
                 categoryTotals[a] > categoryTotals[b] ? a : b
             );
             
-            document.getElementById('totalExpenses').textContent = `${totalExpenses.toLocaleString()}`;
+            document.getElementById('totalExpenses').textContent = `$${totalExpenses.toLocaleString()}`;
             document.getElementById('totalTransactions').textContent = totalTransactions.toLocaleString();
-            document.getElementById('avgTransaction').textContent = `${avgTransaction.toLocaleString()}`;
+            document.getElementById('avgTransaction').textContent = `$${avgTransaction.toLocaleString()}`;
             document.getElementById('topCategory').textContent = topCategory;
             
             createCategoryChart(categoryTotals);
@@ -1026,108 +1020,7 @@
                             beginAtZero: true,
                             ticks: {
                                 callback: function(value) {
-                                    return 'cion)) {
-                            const transaction = {
-                                description: descripcion,
-                                amount: amount,
-                                date: parseBBVADate(fecha),
-                                category: categorizeTransaction(descripcion)
-                            };
-                            transactionData.push(transaction);
-                        }
-                    }
-                }
-            }
-            
-            console.log(`BBVA: Procesadas ${transactionData.length} transacciones`);
-        }
-
-        async function processNuPDF(text) {
-            const lines = text.split('\n');
-            transactionData = [];
-            
-            const transactionPattern = /(\d{1,2} [A-Z]{3} \d{4})\s+(.+?)\s+([-+]?\$?[\d,]+\.?\d*)/;
-            
-            for (let i = 0; i < lines.length; i++) {
-                const line = lines[i].trim();
-                
-                const match = line.match(transactionPattern);
-                if (match) {
-                    const [_, fecha, descripcion, montoStr] = match;
-                    
-                    let amount = parseFloat(montoStr.replace(/[$,\s-]/g, ''));
-                    
-                    const isNegative = montoStr.includes('-');
-                    if (isNegative && amount > 0) {
-                        if (isExpenseTransaction(descripcion)) {
-                            const transaction = {
-                                description: descripcion.trim(),
-                                amount: amount,
-                                date: parseNuDate(fecha),
-                                category: categorizeTransaction(descripcion)
-                            };
-                            transactionData.push(transaction);
-                        }
-                    }
-                }
-            }
-            
-            console.log(`Nu: Procesadas ${transactionData.length} transacciones`);
-        }
-
-        async function processSantanderPDF(text) {
-            const lines = text.split('\n');
-            transactionData = [];
-            
-            const datePattern = /(\d{2}\/\d{2}\/\d{4})/;
-            
-            for (let i = 0; i < lines.length; i++) {
-                const line = lines[i].trim();
-                
-                if (datePattern.test(line) && line.includes('$')) {
-                    const parts = line.split(/\s+/);
-                    const fecha = parts.find(part => datePattern.test(part));
-                    const montoMatch = line.match(/\$?([\d,]+\.?\d*)/);
-                    
-                    if (fecha && montoMatch) {
-                        const descripcion = line.replace(fecha, '').replace(montoMatch[0], '').trim();
-                        const amount = parseFloat(montoMatch[1].replace(/,/g, ''));
-                        
-                        if (!isNaN(amount) && amount > 0 && isExpenseTransaction(descripcion)) {
-                            const transaction = {
-                                description: descripcion,
-                                amount: amount,
-                                date: new Date(fecha),
-                                category: categorizeTransaction(descripcion)
-                            };
-                            transactionData.push(transaction);
-                        }
-                    }
-                }
-            }
-            
-            console.log(`Santander: Procesadas ${transactionData.length} transacciones`);
-        }
-
-        async function processBanortePDF(text) {
-            const lines = text.split('\n');
-            transactionData = [];
-            
-            const datePattern = /(\d{2}-\d{2}-\d{4}|\d{2}\/\d{2}\/\d{4})/;
-            
-            for (let i = 0; i < lines.length; i++) {
-                const line = lines[i].trim();
-                
-                if (datePattern.test(line) && line.includes('$')) {
-                    const parts = line.split(/\s+/);
-                    const fecha = parts.find(part => datePattern.test(part));
-                    const montoMatch = line.match(/\$?([\d,]+\.?\d*)/);
-                    
-                    if (fecha && montoMatch) {
-                        const descripcion = line.replace(fecha, '').replace(montoMatch[0], '').trim();
-                        const amount = parseFloat(montoMatch[1].replace(/,/g, ''));
-                        
-                        if (!isNaN(amount) && amount > 0 && isExpenseTransaction(descrip + value.toLocaleString();
+                                    return '$' + value.toLocaleString();
                                 }
                             }
                         }
@@ -1153,7 +1046,7 @@
                         <div class="category-name">${category}</div>
                         <div style="font-size: 0.9rem; color: #718096;">${percentage}% del total</div>
                     </div>
-                    <div class="budget-amount">${suggestedAmount.toLocaleString()}</div>
+                    <div class="budget-amount">$${suggestedAmount.toLocaleString()}</div>
                 `;
                 
                 budgetContainer.appendChild(budgetItem);
@@ -1161,105 +1054,5 @@
         }
     </script>
 </body>
-</html>cion)) {
-                            const transaction = {
-                                description: descripcion,
-                                amount: amount,
-                                date: parseBBVADate(fecha),
-                                category: categorizeTransaction(descripcion)
-                            };
-                            transactionData.push(transaction);
-                        }
-                    }
-                }
-            }
-            
-            console.log(`BBVA: Procesadas ${transactionData.length} transacciones`);
-        }
-
-        async function processNuPDF(text) {
-            const lines = text.split('\n');
-            transactionData = [];
-            
-            const transactionPattern = /(\d{1,2} [A-Z]{3} \d{4})\s+(.+?)\s+([-+]?\$?[\d,]+\.?\d*)/;
-            
-            for (let i = 0; i < lines.length; i++) {
-                const line = lines[i].trim();
-                
-                const match = line.match(transactionPattern);
-                if (match) {
-                    const [_, fecha, descripcion, montoStr] = match;
-                    
-                    let amount = parseFloat(montoStr.replace(/[$,\s-]/g, ''));
-                    
-                    const isNegative = montoStr.includes('-');
-                    if (isNegative && amount > 0) {
-                        if (isExpenseTransaction(descripcion)) {
-                            const transaction = {
-                                description: descripcion.trim(),
-                                amount: amount,
-                                date: parseNuDate(fecha),
-                                category: categorizeTransaction(descripcion)
-                            };
-                            transactionData.push(transaction);
-                        }
-                    }
-                }
-            }
-            
-            console.log(`Nu: Procesadas ${transactionData.length} transacciones`);
-        }
-
-        async function processSantanderPDF(text) {
-            const lines = text.split('\n');
-            transactionData = [];
-            
-            const datePattern = /(\d{2}\/\d{2}\/\d{4})/;
-            
-            for (let i = 0; i < lines.length; i++) {
-                const line = lines[i].trim();
-                
-                if (datePattern.test(line) && line.includes('$')) {
-                    const parts = line.split(/\s+/);
-                    const fecha = parts.find(part => datePattern.test(part));
-                    const montoMatch = line.match(/\$?([\d,]+\.?\d*)/);
-                    
-                    if (fecha && montoMatch) {
-                        const descripcion = line.replace(fecha, '').replace(montoMatch[0], '').trim();
-                        const amount = parseFloat(montoMatch[1].replace(/,/g, ''));
-                        
-                        if (!isNaN(amount) && amount > 0 && isExpenseTransaction(descripcion)) {
-                            const transaction = {
-                                description: descripcion,
-                                amount: amount,
-                                date: new Date(fecha),
-                                category: categorizeTransaction(descripcion)
-                            };
-                            transactionData.push(transaction);
-                        }
-                    }
-                }
-            }
-            
-            console.log(`Santander: Procesadas ${transactionData.length} transacciones`);
-        }
-
-        async function processBanortePDF(text) {
-            const lines = text.split('\n');
-            transactionData = [];
-            
-            const datePattern = /(\d{2}-\d{2}-\d{4}|\d{2}\/\d{2}\/\d{4})/;
-            
-            for (let i = 0; i < lines.length; i++) {
-                const line = lines[i].trim();
-                
-                if (datePattern.test(line) && line.includes('$')) {
-                    const parts = line.split(/\s+/);
-                    const fecha = parts.find(part => datePattern.test(part));
-                    const montoMatch = line.match(/\$?([\d,]+\.?\d*)/);
-                    
-                    if (fecha && montoMatch) {
-                        const descripcion = line.replace(fecha, '').replace(montoMatch[0], '').trim();
-                        const amount = parseFloat(montoMatch[1].replace(/,/g, ''));
-                        
-                        if (!isNaN(amount) && amount > 0 && isExpenseTransaction(descrip
+</html>
+        
