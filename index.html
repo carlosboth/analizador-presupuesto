@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<div id="errorSection" class="error" style="display: none;"></div><!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -269,7 +269,7 @@
             <div class="upload-area" id="uploadArea">
                 <div class="upload-icon">📊</div>
                 <div class="upload-text">Arrastra tu archivo aquí o haz clic para seleccionar</div>
-                <div class="upload-hint">Soporta archivos Excel (.xlsx), CSV y PDF</div>
+                <div class="upload-hint">Soporta archivos Excel (.xlsx), CSV y PDF de bancos mexicanos</div>
                 <button class="btn" onclick="document.getElementById('fileInput').click()">
                     Seleccionar Archivo
                 </button>
@@ -281,7 +281,44 @@
             <div>⏳ Procesando tu archivo...</div>
         </div>
 
-        <div id="errorSection" class="error" style="display: none;"></div>
+        <div id="pendingSection" class="results-section" style="display: none;">
+            <div style="text-align: center; margin-bottom: 30px;">
+                <div style="font-size: 3rem; margin-bottom: 20px;">⏳</div>
+                <h2 style="color: #667eea; margin-bottom: 20px;">Archivo en proceso</h2>
+                <p style="font-size: 1.1rem; line-height: 1.6; color: #4a5568; margin-bottom: 30px;">
+                    No pudimos procesar este estado de cuenta automáticamente, pero estamos trabajando para soportar todos los bancos mexicanos.
+                </p>
+                <p style="font-size: 1.1rem; line-height: 1.6; color: #4a5568; margin-bottom: 30px;">
+                    Déjanos tu email y el nombre de tu banco, te notificaremos en 24-48h cuando tu reporte esté listo.
+                </p>
+                <p style="font-size: 1rem; color: #718096; margin-bottom: 40px;">
+                    <strong>¡No necesitas volver a subir nada!</strong>
+                </p>
+            </div>
+
+            <div style="max-width: 400px; margin: 0 auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.1);">
+                <!-- Formulario de HubSpot -->
+                <script src="https://js.hsforms.net/forms/embed/50122034.js" defer></script>
+                <div class="hs-form-frame" data-region="na1" data-form-id="7ba42206-42b9-4c9f-8d78-209b9166b526" data-portal-id="50122034"></div>
+                
+                <!-- Botón alternativo para probar otro archivo -->
+                <div style="text-align: center; margin-top: 20px;">
+                    <button type="button" id="tryAnotherFile" 
+                            style="background: none; border: none; color: #667eea; text-decoration: underline; cursor: pointer; font-size: 1rem;">
+                        Probar con otro archivo
+                    </button>
+                </div>
+            </div>
+
+            <div id="formSuccess" style="display: none; text-align: center; margin-top: 30px;">
+                <div style="font-size: 3rem; margin-bottom: 20px;">✅</div>
+                <h3 style="color: #38a169; margin-bottom: 15px;">¡Perfecto!</h3>
+                <p style="color: #4a5568; font-size: 1.1rem;">
+                    Te notificaremos cuando tu reporte esté listo.<br>
+                    Revisa tu email en las próximas 24-48 horas.
+                </p>
+            </div>
+        </div>
 
         <div id="resultsSection" class="results-section">
             <div class="stats-grid">
@@ -337,6 +374,7 @@
         let transactionData = [];
         let categoryChart = null;
         let trendChart = null;
+        let pendingFileData = null; // Para guardar archivo no procesado
 
         // Configuración de categorías (mejorada para transacciones mexicanas)
         const categories = {
@@ -360,6 +398,9 @@
         uploadArea.addEventListener('dragleave', handleDragLeave);
         uploadArea.addEventListener('drop', handleDrop);
         uploadArea.addEventListener('click', () => document.getElementById('fileInput').click());
+
+        // Event listener para botón de probar otro archivo
+        document.getElementById('tryAnotherFile').addEventListener('click', resetUpload);
 
         function handleDragOver(e) {
             e.preventDefault();
@@ -391,6 +432,7 @@
             document.getElementById('loadingSection').style.display = 'block';
             document.getElementById('resultsSection').style.display = 'none';
             document.getElementById('errorSection').style.display = 'none';
+            document.getElementById('pendingSection').style.display = 'none';
         }
 
         function hideLoading() {
@@ -406,6 +448,19 @@
         function showResults() {
             document.getElementById('resultsSection').style.display = 'block';
             hideLoading();
+        }
+
+        function showPending() {
+            document.getElementById('pendingSection').style.display = 'block';
+            hideLoading();
+        }
+
+        function resetUpload() {
+            document.getElementById('resultsSection').style.display = 'none';
+            document.getElementById('errorSection').style.display = 'none';
+            document.getElementById('pendingSection').style.display = 'none';
+            document.getElementById('fileInput').value = '';
+            pendingFileData = null;
         }
 
         async function processFile(file) {
@@ -425,15 +480,59 @@
                 }
                 
                 if (transactionData.length === 0) {
-                    throw new Error('No se encontraron transacciones en el archivo.');
+                    // Si no se encontraron transacciones, guardar para procesamiento manual
+                    pendingFileData = {
+                        file: file,
+                        fileName: file.name,
+                        timestamp: new Date().toISOString(),
+                        fileId: generateFileId()
+                    };
+                    
+                    // Llenar el campo oculto File ID en HubSpot cuando se cargue el formulario
+                    setTimeout(() => {
+                        const hubspotForm = document.querySelector('.hs-form-frame iframe');
+                        if (hubspotForm && hubspotForm.contentDocument) {
+                            const fileIdField = hubspotForm.contentDocument.querySelector('input[name="file_id"]');
+                            if (fileIdField) {
+                                fileIdField.value = pendingFileData.fileId;
+                            }
+                        }
+                    }, 2000);
+                    
+                    showPending();
+                    return;
                 }
                 
                 analyzeData();
                 showResults();
                 
             } catch (error) {
-                showError(error.message);
+                // Si hay error en el procesamiento, también enviar a pendiente
+                pendingFileData = {
+                    file: file,
+                    fileName: file.name,
+                    timestamp: new Date().toISOString(),
+                    fileId: generateFileId(),
+                    error: error.message
+                };
+                
+                // Llenar el campo oculto File ID en HubSpot cuando se cargue el formulario
+                setTimeout(() => {
+                    const hubspotForm = document.querySelector('.hs-form-frame iframe');
+                    if (hubspotForm && hubspotForm.contentDocument) {
+                        const fileIdField = hubspotForm.contentDocument.querySelector('input[name="file_id"]');
+                        if (fileIdField) {
+                            fileIdField.value = pendingFileData.fileId;
+                        }
+                    }
+                }, 2000);
+                
+                showPending();
             }
+        }
+
+        function generateFileId() {
+            return 'file_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
         }
 
         async function processCSV(file) {
@@ -483,9 +582,1073 @@
         }
 
         async function processPDF(file) {
-            // Simulación de procesamiento de PDF
-            // En una implementación real, aquí extraerías el texto del PDF
-            showError('El procesamiento de PDF está en desarrollo. Por favor usa archivos Excel o CSV por ahora.');
+            try {
+                // Leer el archivo PDF
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+                
+                let fullText = '';
+                
+                // Extraer texto de todas las páginas
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const textContent = await page.getTextContent();
+                    const pageText = textContent.items.map(item => item.str).join(' ');
+                    fullText += pageText + '\n';
+                }
+                
+                console.log('Texto extraído del PDF:', fullText.substring(0, 500) + '...');
+                
+                // Identificar tipo de banco y procesar
+                if (fullText.includes('BBVA') || fullText.includes('bbva')) {
+                    await processBBVAPDF(fullText);
+                } else if (fullText.includes('Nu México') || fullText.includes('Cuenta Nu')) {
+                    await processNuPDF(fullText);
+                } else if (fullText.includes('Santander') || fullText.includes('SANTANDER')) {
+                    await processSantanderPDF(fullText);
+                } else if (fullText.includes('Banorte') || fullText.includes('BANORTE')) {
+                    await processBanortePDF(fullText);
+                } else {
+                    // Procesamiento genérico
+                    await processGenericPDF(fullText);
+                }
+                
+            } catch (error) {
+                console.error('Error procesando PDF:', error);
+                throw new Error('Error al procesar el PDF. Asegúrate de que sea un estado de cuenta válido.');
+            }
+        }
+
+        async function processBBVAPDF(text) {
+            const lines = text.split('\n');
+            transactionData = [];
+            
+            // Patrones para BBVA
+            const datePattern = /(\d{1,2}\/[A-Z]{3})/;
+            const amountPattern = /[\$]?([\d,]+\.?\d*)/;
+            
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                
+                // Buscar líneas que empiecen con fecha
+                const dateMatch = line.match(datePattern);
+                if (dateMatch) {
+                    const parts = line.split(' ');
+                    if (parts.length >= 3) {
+                        const fecha = parts[0];
+                        const descripcion = parts.slice(1, -1).join(' ');
+                        const montoStr = parts[parts.length - 1];
+                        
+                        const amount = parseFloat(montoStr.replace(/[,$]/g, ''));
+                        
+                        if (!isNaN(amount) && amount > 0 && isExpenseTransaction(descripcion)) {
+                            const transaction = {
+                                description: descripcion,
+                                amount: amount,
+                                date: parseBBVADate(fecha),
+                                category: categorizeTransaction(descripcion)
+                            };
+                            transactionData.push(transaction);
+                        }
+                    }
+                }
+            }
+            
+            console.log(`BBVA: Procesadas ${transactionData.length} transacciones`);
+        }
+
+        async function processNuPDF(text) {
+            const lines = text.split('\n');
+            transactionData = [];
+            
+            // Patrones para Nu México
+            const transactionPattern = /(\d{1,2} [A-Z]{3} \d{4})\s+(.+?)\s+([-+]?\$?[\d,]+\.?\d*)/;
+            
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                
+                // Buscar líneas de transacciones
+                const match = line.match(transactionPattern);
+                if (match) {
+                    const [_, fecha, descripcion, montoStr] = match;
+                    
+                    // Limpiar y parsear monto
+                    let amount = parseFloat(montoStr.replace(/[$,\s-]/g, ''));
+                    
+                    // Si el monto original tenía signo negativo, es un gasto
+                    const isNegative = montoStr.includes('-');
+                    if (isNegative && amount > 0) {
+                        // Solo procesar gastos (negativos en Nu)
+                        if (isExpenseTransaction(descripcion)) {
+                            const transaction = {
+                                description: descripcion.trim(),
+                                amount: amount,
+                                date: parseNuDate(fecha),
+                                category: categorizeTransaction(descripcion)
+                            };
+                            transactionData.push(transaction);
+                        }
+                    }
+                }
+            }
+            
+            console.log(`Nu: Procesadas ${transactionData.length} transacciones`);
+        }
+
+        async function processSantanderPDF(text) {
+            // Implementación básica para Santander
+            const lines = text.split('\n');
+            transactionData = [];
+            
+            // Patrón típico de Santander (puede variar)
+            const datePattern = /(\d{2}\/\d{2}\/\d{4})/;
+            
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                
+                if (datePattern.test(line) && line.includes('
+
+        function parseTransaction(headers, values) {
+            const transaction = {};
+            
+            // Buscar columnas relevantes (mejorado para BBVA y otros bancos mexicanos)
+            const descriptionFields = ['descripcion', 'descripción', 'concepto', 'description', 'merchant', 'comercio', 'movimiento'];
+            const amountFields = ['monto', 'importe', 'amount', 'cantidad', 'cargo', 'abono', 'importe neto'];
+            const dateFields = ['fecha', 'date', 'dia'];
+            
+            let description = '';
+            let amount = 0;
+            let date = new Date();
+            
+            headers.forEach((header, index) => {
+                const value = values[index];
+                const headerLower = String(header || '').toLowerCase().trim();
+                
+                // Buscar descripción
+                if (descriptionFields.some(field => headerLower.includes(field))) {
+                    description = String(value || '');
+                }
+                
+                // Buscar monto
+                if (amountFields.some(field => headerLower.includes(field))) {
+                    const cleanValue = String(value || '0').replace(/[,$\s]/g, '');
+                    const numValue = parseFloat(cleanValue);
+                    if (!isNaN(numValue) && Math.abs(numValue) > Math.abs(amount)) {
+                        amount = numValue;
+                    }
+                }
+                
+                // Buscar fecha (mejorado para formato BBVA)
+                if (dateFields.some(field => headerLower.includes(field))) {
+                    const dateValue = parseBBVADate(value);
+                    if (dateValue && !isNaN(dateValue.getTime())) {
+                        date = dateValue;
+                    }
+                }
+            });
+            
+            // Filtrar solo gastos (transacciones que representan salidas de dinero)
+            if (description && Math.abs(amount) > 0 && isExpenseTransaction(description)) {
+                return {
+                    description: description,
+                    amount: Math.abs(amount),
+                    date: date,
+                    category: categorizeTransaction(description)
+                };
+            }
+            
+            return null;
+        }
+
+        // Función para parsear fechas de BBVA (formato "17/AGO", "18/AGO", etc.)
+        function parseBBVADate(dateStr) {
+            if (!dateStr) return new Date();
+            
+            const str = String(dateStr).trim();
+            
+            // Formato BBVA: "17/AGO"
+            if (str.includes('/') && str.length <= 10) {
+                const parts = str.split('/');
+                if (parts.length === 2) {
+                    const day = parseInt(parts[0]);
+                    const monthStr = parts[1].toUpperCase();
+                    
+                    const monthMap = {
+                        'ENE': 0, 'FEB': 1, 'MAR': 2, 'ABR': 3, 'MAY': 4, 'JUN': 5,
+                        'JUL': 6, 'AGO': 7, 'SEP': 8, 'OCT': 9, 'NOV': 10, 'DIC': 11
+                    };
+                    
+                    const month = monthMap[monthStr];
+                    if (month !== undefined && day >= 1 && day <= 31) {
+                        const currentYear = new Date().getFullYear();
+                        return new Date(currentYear, month, day);
+                    }
+                }
+            }
+            
+            // Formato estándar
+            const standardDate = new Date(dateStr);
+            if (!isNaN(standardDate.getTime())) {
+                return standardDate;
+            }
+            
+            return new Date();
+        }
+
+        // Función para identificar si es un gasto (no un ingreso)
+        function isExpenseTransaction(description) {
+            const desc = description.toLowerCase();
+            
+            // Excluir ingresos típicos
+            const incomeKeywords = [
+                'spei recibido', 'deposito', 'depósito', 'transferencia recibida',
+                'pago de nomina', 'nómina', 'salario', 'sueldo', 'abono',
+                'intereses', 'rendimiento', 'devolucion', 'devolución',
+                'reembolso', 'cashback'
+            ];
+            
+            // Si contiene palabras de ingreso, no es gasto
+            for (const keyword of incomeKeywords) {
+                if (desc.includes(keyword)) {
+                    return false;
+                }
+            }
+            
+            return true; // Por defecto, considerar como gasto
+        }
+
+        function categorizeTransaction(description) {
+            const desc = description.toLowerCase();
+            
+            for (const [category, keywords] of Object.entries(categories)) {
+                if (category === 'Otros') continue;
+                
+                for (const keyword of keywords) {
+                    if (desc.includes(keyword)) {
+                        return category;
+                    }
+                }
+            }
+            
+            return 'Otros';
+        }
+
+        function analyzeData() {
+            // Calcular estadísticas
+            const totalExpenses = transactionData.reduce((sum, t) => sum + t.amount, 0);
+            const totalTransactions = transactionData.length;
+            const avgTransaction = totalExpenses / totalTransactions;
+            
+            // Agrupar por categorías
+            const categoryTotals = {};
+            transactionData.forEach(t => {
+                categoryTotals[t.category] = (categoryTotals[t.category] || 0) + t.amount;
+            });
+            
+            const topCategory = Object.keys(categoryTotals).reduce((a, b) => 
+                categoryTotals[a] > categoryTotals[b] ? a : b
+            );
+            
+            // Actualizar estadísticas
+            document.getElementById('totalExpenses').textContent = `$${totalExpenses.toLocaleString()}`;
+            document.getElementById('totalTransactions').textContent = totalTransactions.toLocaleString();
+            document.getElementById('avgTransaction').textContent = `$${avgTransaction.toLocaleString()}`;
+            document.getElementById('topCategory').textContent = topCategory;
+            
+            // Crear gráficos
+            createCategoryChart(categoryTotals);
+            createTrendChart();
+            createBudgetSuggestions(categoryTotals, totalExpenses);
+        }
+
+        function createCategoryChart(categoryTotals) {
+            const ctx = document.getElementById('categoryChart').getContext('2d');
+            
+            if (categoryChart) {
+                categoryChart.destroy();
+            }
+            
+            const colors = [
+                '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
+                '#9966FF', '#FF9F40', '#FF6384', '#C9CBCF'
+            ];
+            
+            categoryChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(categoryTotals),
+                    datasets: [{
+                        data: Object.values(categoryTotals),
+                        backgroundColor: colors,
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+
+        function createTrendChart() {
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            
+            if (trendChart) {
+                trendChart.destroy();
+            }
+            
+            // Agrupar por mes
+            const monthlyData = {};
+            transactionData.forEach(t => {
+                const monthKey = t.date.toISOString().substring(0, 7);
+                monthlyData[monthKey] = (monthlyData[monthKey] || 0) + t.amount;
+            });
+            
+            const sortedMonths = Object.keys(monthlyData).sort();
+            
+            trendChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: sortedMonths.map(month => {
+                        const date = new Date(month + '-01');
+                        return date.toLocaleDateString('es-ES', { year: 'numeric', month: 'short' });
+                    }),
+                    datasets: [{
+                        label: 'Gastos Mensuales',
+                        data: sortedMonths.map(month => monthlyData[month]),
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createBudgetSuggestions(categoryTotals, totalExpenses) {
+            const budgetContainer = document.getElementById('budgetCategories');
+            budgetContainer.innerHTML = '';
+            
+            // Calcular presupuesto sugerido (con un margen de mejora del 10%)
+            const improvementFactor = 0.9;
+            
+            Object.entries(categoryTotals).forEach(([category, amount]) => {
+                const suggestedAmount = Math.round(amount * improvementFactor);
+                const percentage = ((amount / totalExpenses) * 100).toFixed(1);
+                
+                const budgetItem = document.createElement('div');
+                budgetItem.className = 'budget-item';
+                budgetItem.innerHTML = `
+                    <div>
+                        <div class="category-name">${category}</div>
+                        <div style="font-size: 0.9rem; color: #718096;">${percentage}% del total</div>
+                    </div>
+                    <div class="budget-amount">$${suggestedAmount.toLocaleString()}</div>
+                `;
+                
+                budgetContainer.appendChild(budgetItem);
+            });
+        }
+    </script>
+</body>
+</html>)) {
+                    const parts = line.split(/\s+/);
+                    const fecha = parts.find(part => datePattern.test(part));
+                    const montoMatch = line.match(/\$?([\d,]+\.?\d*)/);
+                    
+                    if (fecha && montoMatch) {
+                        const descripcion = line.replace(fecha, '').replace(montoMatch[0], '').trim();
+                        const amount = parseFloat(montoMatch[1].replace(/,/g, ''));
+                        
+                        if (!isNaN(amount) && amount > 0 && isExpenseTransaction(descripcion)) {
+                            const transaction = {
+                                description: descripcion,
+                                amount: amount,
+                                date: new Date(fecha),
+                                category: categorizeTransaction(descripcion)
+                            };
+                            transactionData.push(transaction);
+                        }
+                    }
+                }
+            }
+            
+            console.log(`Santander: Procesadas ${transactionData.length} transacciones`);
+        }
+
+        async function processBanortePDF(text) {
+            // Implementación básica para Banorte
+            const lines = text.split('\n');
+            transactionData = [];
+            
+            // Similar lógica adaptada para Banorte
+            const datePattern = /(\d{2}-\d{2}-\d{4}|\d{2}\/\d{2}\/\d{4})/;
+            
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                
+                if (datePattern.test(line) && line.includes('
+
+        function parseTransaction(headers, values) {
+            const transaction = {};
+            
+            // Buscar columnas relevantes (mejorado para BBVA y otros bancos mexicanos)
+            const descriptionFields = ['descripcion', 'descripción', 'concepto', 'description', 'merchant', 'comercio', 'movimiento'];
+            const amountFields = ['monto', 'importe', 'amount', 'cantidad', 'cargo', 'abono', 'importe neto'];
+            const dateFields = ['fecha', 'date', 'dia'];
+            
+            let description = '';
+            let amount = 0;
+            let date = new Date();
+            
+            headers.forEach((header, index) => {
+                const value = values[index];
+                const headerLower = String(header || '').toLowerCase().trim();
+                
+                // Buscar descripción
+                if (descriptionFields.some(field => headerLower.includes(field))) {
+                    description = String(value || '');
+                }
+                
+                // Buscar monto
+                if (amountFields.some(field => headerLower.includes(field))) {
+                    const cleanValue = String(value || '0').replace(/[,$\s]/g, '');
+                    const numValue = parseFloat(cleanValue);
+                    if (!isNaN(numValue) && Math.abs(numValue) > Math.abs(amount)) {
+                        amount = numValue;
+                    }
+                }
+                
+                // Buscar fecha (mejorado para formato BBVA)
+                if (dateFields.some(field => headerLower.includes(field))) {
+                    const dateValue = parseBBVADate(value);
+                    if (dateValue && !isNaN(dateValue.getTime())) {
+                        date = dateValue;
+                    }
+                }
+            });
+            
+            // Filtrar solo gastos (transacciones que representan salidas de dinero)
+            if (description && Math.abs(amount) > 0 && isExpenseTransaction(description)) {
+                return {
+                    description: description,
+                    amount: Math.abs(amount),
+                    date: date,
+                    category: categorizeTransaction(description)
+                };
+            }
+            
+            return null;
+        }
+
+        // Función para parsear fechas de BBVA (formato "17/AGO", "18/AGO", etc.)
+        function parseBBVADate(dateStr) {
+            if (!dateStr) return new Date();
+            
+            const str = String(dateStr).trim();
+            
+            // Formato BBVA: "17/AGO"
+            if (str.includes('/') && str.length <= 10) {
+                const parts = str.split('/');
+                if (parts.length === 2) {
+                    const day = parseInt(parts[0]);
+                    const monthStr = parts[1].toUpperCase();
+                    
+                    const monthMap = {
+                        'ENE': 0, 'FEB': 1, 'MAR': 2, 'ABR': 3, 'MAY': 4, 'JUN': 5,
+                        'JUL': 6, 'AGO': 7, 'SEP': 8, 'OCT': 9, 'NOV': 10, 'DIC': 11
+                    };
+                    
+                    const month = monthMap[monthStr];
+                    if (month !== undefined && day >= 1 && day <= 31) {
+                        const currentYear = new Date().getFullYear();
+                        return new Date(currentYear, month, day);
+                    }
+                }
+            }
+            
+            // Formato estándar
+            const standardDate = new Date(dateStr);
+            if (!isNaN(standardDate.getTime())) {
+                return standardDate;
+            }
+            
+            return new Date();
+        }
+
+        // Función para identificar si es un gasto (no un ingreso)
+        function isExpenseTransaction(description) {
+            const desc = description.toLowerCase();
+            
+            // Excluir ingresos típicos
+            const incomeKeywords = [
+                'spei recibido', 'deposito', 'depósito', 'transferencia recibida',
+                'pago de nomina', 'nómina', 'salario', 'sueldo', 'abono',
+                'intereses', 'rendimiento', 'devolucion', 'devolución',
+                'reembolso', 'cashback'
+            ];
+            
+            // Si contiene palabras de ingreso, no es gasto
+            for (const keyword of incomeKeywords) {
+                if (desc.includes(keyword)) {
+                    return false;
+                }
+            }
+            
+            return true; // Por defecto, considerar como gasto
+        }
+
+        function categorizeTransaction(description) {
+            const desc = description.toLowerCase();
+            
+            for (const [category, keywords] of Object.entries(categories)) {
+                if (category === 'Otros') continue;
+                
+                for (const keyword of keywords) {
+                    if (desc.includes(keyword)) {
+                        return category;
+                    }
+                }
+            }
+            
+            return 'Otros';
+        }
+
+        function analyzeData() {
+            // Calcular estadísticas
+            const totalExpenses = transactionData.reduce((sum, t) => sum + t.amount, 0);
+            const totalTransactions = transactionData.length;
+            const avgTransaction = totalExpenses / totalTransactions;
+            
+            // Agrupar por categorías
+            const categoryTotals = {};
+            transactionData.forEach(t => {
+                categoryTotals[t.category] = (categoryTotals[t.category] || 0) + t.amount;
+            });
+            
+            const topCategory = Object.keys(categoryTotals).reduce((a, b) => 
+                categoryTotals[a] > categoryTotals[b] ? a : b
+            );
+            
+            // Actualizar estadísticas
+            document.getElementById('totalExpenses').textContent = `$${totalExpenses.toLocaleString()}`;
+            document.getElementById('totalTransactions').textContent = totalTransactions.toLocaleString();
+            document.getElementById('avgTransaction').textContent = `$${avgTransaction.toLocaleString()}`;
+            document.getElementById('topCategory').textContent = topCategory;
+            
+            // Crear gráficos
+            createCategoryChart(categoryTotals);
+            createTrendChart();
+            createBudgetSuggestions(categoryTotals, totalExpenses);
+        }
+
+        function createCategoryChart(categoryTotals) {
+            const ctx = document.getElementById('categoryChart').getContext('2d');
+            
+            if (categoryChart) {
+                categoryChart.destroy();
+            }
+            
+            const colors = [
+                '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
+                '#9966FF', '#FF9F40', '#FF6384', '#C9CBCF'
+            ];
+            
+            categoryChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(categoryTotals),
+                    datasets: [{
+                        data: Object.values(categoryTotals),
+                        backgroundColor: colors,
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+
+        function createTrendChart() {
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            
+            if (trendChart) {
+                trendChart.destroy();
+            }
+            
+            // Agrupar por mes
+            const monthlyData = {};
+            transactionData.forEach(t => {
+                const monthKey = t.date.toISOString().substring(0, 7);
+                monthlyData[monthKey] = (monthlyData[monthKey] || 0) + t.amount;
+            });
+            
+            const sortedMonths = Object.keys(monthlyData).sort();
+            
+            trendChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: sortedMonths.map(month => {
+                        const date = new Date(month + '-01');
+                        return date.toLocaleDateString('es-ES', { year: 'numeric', month: 'short' });
+                    }),
+                    datasets: [{
+                        label: 'Gastos Mensuales',
+                        data: sortedMonths.map(month => monthlyData[month]),
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createBudgetSuggestions(categoryTotals, totalExpenses) {
+            const budgetContainer = document.getElementById('budgetCategories');
+            budgetContainer.innerHTML = '';
+            
+            // Calcular presupuesto sugerido (con un margen de mejora del 10%)
+            const improvementFactor = 0.9;
+            
+            Object.entries(categoryTotals).forEach(([category, amount]) => {
+                const suggestedAmount = Math.round(amount * improvementFactor);
+                const percentage = ((amount / totalExpenses) * 100).toFixed(1);
+                
+                const budgetItem = document.createElement('div');
+                budgetItem.className = 'budget-item';
+                budgetItem.innerHTML = `
+                    <div>
+                        <div class="category-name">${category}</div>
+                        <div style="font-size: 0.9rem; color: #718096;">${percentage}% del total</div>
+                    </div>
+                    <div class="budget-amount">$${suggestedAmount.toLocaleString()}</div>
+                `;
+                
+                budgetContainer.appendChild(budgetItem);
+            });
+        }
+    </script>
+</body>
+</html>)) {
+                    const parts = line.split(/\s+/);
+                    const fecha = parts.find(part => datePattern.test(part));
+                    const montoMatch = line.match(/\$?([\d,]+\.?\d*)/);
+                    
+                    if (fecha && montoMatch) {
+                        const descripcion = line.replace(fecha, '').replace(montoMatch[0], '').trim();
+                        const amount = parseFloat(montoMatch[1].replace(/,/g, ''));
+                        
+                        if (!isNaN(amount) && amount > 0 && isExpenseTransaction(descripcion)) {
+                            const transaction = {
+                                description: descripcion,
+                                amount: amount,
+                                date: new Date(fecha.replace(/-/g, '/')),
+                                category: categorizeTransaction(descripcion)
+                            };
+                            transactionData.push(transaction);
+                        }
+                    }
+                }
+            }
+            
+            console.log(`Banorte: Procesadas ${transactionData.length} transacciones`);
+        }
+
+        async function processGenericPDF(text) {
+            // Procesamiento genérico para otros bancos
+            const lines = text.split('\n');
+            transactionData = [];
+            
+            // Patrones genéricos
+            const datePatterns = [
+                /(\d{1,2}\/\d{1,2}\/\d{4})/,
+                /(\d{1,2}-\d{1,2}-\d{4})/,
+                /(\d{1,2} [A-Z]{3} \d{4})/,
+                /(\d{1,2}\/[A-Z]{3}\/\d{4})/
+            ];
+            
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                
+                // Buscar fechas con cualquier patrón
+                let dateFound = null;
+                for (const pattern of datePatterns) {
+                    const match = line.match(pattern);
+                    if (match) {
+                        dateFound = match[1];
+                        break;
+                    }
+                }
+                
+                if (dateFound && line.includes('
+
+        function parseTransaction(headers, values) {
+            const transaction = {};
+            
+            // Buscar columnas relevantes (mejorado para BBVA y otros bancos mexicanos)
+            const descriptionFields = ['descripcion', 'descripción', 'concepto', 'description', 'merchant', 'comercio', 'movimiento'];
+            const amountFields = ['monto', 'importe', 'amount', 'cantidad', 'cargo', 'abono', 'importe neto'];
+            const dateFields = ['fecha', 'date', 'dia'];
+            
+            let description = '';
+            let amount = 0;
+            let date = new Date();
+            
+            headers.forEach((header, index) => {
+                const value = values[index];
+                const headerLower = String(header || '').toLowerCase().trim();
+                
+                // Buscar descripción
+                if (descriptionFields.some(field => headerLower.includes(field))) {
+                    description = String(value || '');
+                }
+                
+                // Buscar monto
+                if (amountFields.some(field => headerLower.includes(field))) {
+                    const cleanValue = String(value || '0').replace(/[,$\s]/g, '');
+                    const numValue = parseFloat(cleanValue);
+                    if (!isNaN(numValue) && Math.abs(numValue) > Math.abs(amount)) {
+                        amount = numValue;
+                    }
+                }
+                
+                // Buscar fecha (mejorado para formato BBVA)
+                if (dateFields.some(field => headerLower.includes(field))) {
+                    const dateValue = parseBBVADate(value);
+                    if (dateValue && !isNaN(dateValue.getTime())) {
+                        date = dateValue;
+                    }
+                }
+            });
+            
+            // Filtrar solo gastos (transacciones que representan salidas de dinero)
+            if (description && Math.abs(amount) > 0 && isExpenseTransaction(description)) {
+                return {
+                    description: description,
+                    amount: Math.abs(amount),
+                    date: date,
+                    category: categorizeTransaction(description)
+                };
+            }
+            
+            return null;
+        }
+
+        // Función para parsear fechas de BBVA (formato "17/AGO", "18/AGO", etc.)
+        function parseBBVADate(dateStr) {
+            if (!dateStr) return new Date();
+            
+            const str = String(dateStr).trim();
+            
+            // Formato BBVA: "17/AGO"
+            if (str.includes('/') && str.length <= 10) {
+                const parts = str.split('/');
+                if (parts.length === 2) {
+                    const day = parseInt(parts[0]);
+                    const monthStr = parts[1].toUpperCase();
+                    
+                    const monthMap = {
+                        'ENE': 0, 'FEB': 1, 'MAR': 2, 'ABR': 3, 'MAY': 4, 'JUN': 5,
+                        'JUL': 6, 'AGO': 7, 'SEP': 8, 'OCT': 9, 'NOV': 10, 'DIC': 11
+                    };
+                    
+                    const month = monthMap[monthStr];
+                    if (month !== undefined && day >= 1 && day <= 31) {
+                        const currentYear = new Date().getFullYear();
+                        return new Date(currentYear, month, day);
+                    }
+                }
+            }
+            
+            // Formato estándar
+            const standardDate = new Date(dateStr);
+            if (!isNaN(standardDate.getTime())) {
+                return standardDate;
+            }
+            
+            return new Date();
+        }
+
+        // Función para identificar si es un gasto (no un ingreso)
+        function isExpenseTransaction(description) {
+            const desc = description.toLowerCase();
+            
+            // Excluir ingresos típicos
+            const incomeKeywords = [
+                'spei recibido', 'deposito', 'depósito', 'transferencia recibida',
+                'pago de nomina', 'nómina', 'salario', 'sueldo', 'abono',
+                'intereses', 'rendimiento', 'devolucion', 'devolución',
+                'reembolso', 'cashback'
+            ];
+            
+            // Si contiene palabras de ingreso, no es gasto
+            for (const keyword of incomeKeywords) {
+                if (desc.includes(keyword)) {
+                    return false;
+                }
+            }
+            
+            return true; // Por defecto, considerar como gasto
+        }
+
+        function categorizeTransaction(description) {
+            const desc = description.toLowerCase();
+            
+            for (const [category, keywords] of Object.entries(categories)) {
+                if (category === 'Otros') continue;
+                
+                for (const keyword of keywords) {
+                    if (desc.includes(keyword)) {
+                        return category;
+                    }
+                }
+            }
+            
+            return 'Otros';
+        }
+
+        function analyzeData() {
+            // Calcular estadísticas
+            const totalExpenses = transactionData.reduce((sum, t) => sum + t.amount, 0);
+            const totalTransactions = transactionData.length;
+            const avgTransaction = totalExpenses / totalTransactions;
+            
+            // Agrupar por categorías
+            const categoryTotals = {};
+            transactionData.forEach(t => {
+                categoryTotals[t.category] = (categoryTotals[t.category] || 0) + t.amount;
+            });
+            
+            const topCategory = Object.keys(categoryTotals).reduce((a, b) => 
+                categoryTotals[a] > categoryTotals[b] ? a : b
+            );
+            
+            // Actualizar estadísticas
+            document.getElementById('totalExpenses').textContent = `$${totalExpenses.toLocaleString()}`;
+            document.getElementById('totalTransactions').textContent = totalTransactions.toLocaleString();
+            document.getElementById('avgTransaction').textContent = `$${avgTransaction.toLocaleString()}`;
+            document.getElementById('topCategory').textContent = topCategory;
+            
+            // Crear gráficos
+            createCategoryChart(categoryTotals);
+            createTrendChart();
+            createBudgetSuggestions(categoryTotals, totalExpenses);
+        }
+
+        function createCategoryChart(categoryTotals) {
+            const ctx = document.getElementById('categoryChart').getContext('2d');
+            
+            if (categoryChart) {
+                categoryChart.destroy();
+            }
+            
+            const colors = [
+                '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
+                '#9966FF', '#FF9F40', '#FF6384', '#C9CBCF'
+            ];
+            
+            categoryChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(categoryTotals),
+                    datasets: [{
+                        data: Object.values(categoryTotals),
+                        backgroundColor: colors,
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+
+        function createTrendChart() {
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            
+            if (trendChart) {
+                trendChart.destroy();
+            }
+            
+            // Agrupar por mes
+            const monthlyData = {};
+            transactionData.forEach(t => {
+                const monthKey = t.date.toISOString().substring(0, 7);
+                monthlyData[monthKey] = (monthlyData[monthKey] || 0) + t.amount;
+            });
+            
+            const sortedMonths = Object.keys(monthlyData).sort();
+            
+            trendChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: sortedMonths.map(month => {
+                        const date = new Date(month + '-01');
+                        return date.toLocaleDateString('es-ES', { year: 'numeric', month: 'short' });
+                    }),
+                    datasets: [{
+                        label: 'Gastos Mensuales',
+                        data: sortedMonths.map(month => monthlyData[month]),
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createBudgetSuggestions(categoryTotals, totalExpenses) {
+            const budgetContainer = document.getElementById('budgetCategories');
+            budgetContainer.innerHTML = '';
+            
+            // Calcular presupuesto sugerido (con un margen de mejora del 10%)
+            const improvementFactor = 0.9;
+            
+            Object.entries(categoryTotals).forEach(([category, amount]) => {
+                const suggestedAmount = Math.round(amount * improvementFactor);
+                const percentage = ((amount / totalExpenses) * 100).toFixed(1);
+                
+                const budgetItem = document.createElement('div');
+                budgetItem.className = 'budget-item';
+                budgetItem.innerHTML = `
+                    <div>
+                        <div class="category-name">${category}</div>
+                        <div style="font-size: 0.9rem; color: #718096;">${percentage}% del total</div>
+                    </div>
+                    <div class="budget-amount">$${suggestedAmount.toLocaleString()}</div>
+                `;
+                
+                budgetContainer.appendChild(budgetItem);
+            });
+        }
+    </script>
+</body>
+</html>)) {
+                    const montoMatch = line.match(/\$?([\d,]+\.?\d*)/);
+                    
+                    if (montoMatch) {
+                        const descripcion = line.replace(dateFound, '').replace(montoMatch[0], '').trim();
+                        const amount = parseFloat(montoMatch[1].replace(/,/g, ''));
+                        
+                        if (!isNaN(amount) && amount > 0 && descripcion.length > 5) {
+                            const transaction = {
+                                description: descripcion,
+                                amount: amount,
+                                date: new Date(dateFound),
+                                category: categorizeTransaction(descripcion)
+                            };
+                            transactionData.push(transaction);
+                        }
+                    }
+                }
+            }
+            
+            console.log(`Genérico: Procesadas ${transactionData.length} transacciones`);
+        }
+
+        // Función para parsear fechas de Nu (formato: "30 ENE 2025")
+        function parseNuDate(dateStr) {
+            const parts = dateStr.split(' ');
+            if (parts.length === 3) {
+                const day = parseInt(parts[0]);
+                const monthStr = parts[1];
+                const year = parseInt(parts[2]);
+                
+                const monthMap = {
+                    'ENE': 0, 'FEB': 1, 'MAR': 2, 'ABR': 3, 'MAY': 4, 'JUN': 5,
+                    'JUL': 6, 'AGO': 7, 'SEP': 8, 'OCT': 9, 'NOV': 10, 'DIC': 11
+                };
+                
+                const month = monthMap[monthStr];
+                if (month !== undefined) {
+                    return new Date(year, month, day);
+                }
+            }
+            
+            return new Date();
         }
 
         function parseTransaction(headers, values) {
