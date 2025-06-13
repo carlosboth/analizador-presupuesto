@@ -378,6 +378,7 @@
             'Otros': []
         };
 
+        // Event listeners
         document.getElementById('fileInput').addEventListener('change', handleFileSelect);
         
         const uploadArea = document.getElementById('uploadArea');
@@ -388,6 +389,7 @@
 
         document.getElementById('tryAnotherFile').addEventListener('click', resetUpload);
 
+        // Drag and drop functions
         function handleDragOver(e) {
             e.preventDefault();
             uploadArea.classList.add('dragover');
@@ -414,6 +416,7 @@
             }
         }
 
+        // UI state functions
         function showLoading() {
             document.getElementById('loadingSection').style.display = 'block';
             document.getElementById('resultsSection').style.display = 'none';
@@ -449,6 +452,7 @@
             pendingFileData = null;
         }
 
+        // Main file processing function
         async function processFile(file) {
             showLoading();
             
@@ -517,6 +521,7 @@
             return 'file_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
         }
 
+        // File processing functions
         async function processCSV(file) {
             const text = await file.text();
             const lines = text.split('\n');
@@ -597,6 +602,7 @@
             }
         }
 
+        // Bank-specific PDF processors
         async function processBBVAPDF(text) {
             const lines = text.split('\n');
             transactionData = [];
@@ -620,7 +626,7 @@
                             const transaction = {
                                 description: descripcion,
                                 amount: amount,
-                                date: parseBBVADate(fecha),
+                                date: new Date(fecha.replace(/-/g, '/')),
                                 category: categorizeTransaction(descripcion)
                             };
                             transactionData.push(transaction);
@@ -655,7 +661,14 @@
                     }
                 }
                 
-                if (dateFound && line.includes('
+                if (dateFound && line.includes('cion)) {
+                            const transaction = {
+                                description: descripcion,
+                                amount: amount,
+                                date: parseBBVADate(fecha),
+                                category: categorizeTransaction(descripcion)
+                            };
+                            transactionData.push(transaction);
                         }
                     }
                 }
@@ -749,13 +762,7 @@
                         const descripcion = line.replace(fecha, '').replace(montoMatch[0], '').trim();
                         const amount = parseFloat(montoMatch[1].replace(/,/g, ''));
                         
-                        if (!isNaN(amount) && amount > 0 && isExpenseTransaction(descripcion)) {
-                            const transaction = {
-                                description: descripcion,
-                                amount: amount,
-                                date: new Date(fecha.replace(/-/g, '/')),
-                                category: categorizeTransaction(descripcion)
-                            };)) {
+                        if (!isNaN(amount) && amount > 0 && isExpenseTransaction(descrip)) {
                     const montoMatch = line.match(/\$?([\d,]+\.?\d*)/);
                     
                     if (montoMatch) {
@@ -778,6 +785,7 @@
             console.log(`Genérico: Procesadas ${transactionData.length} transacciones`);
         }
 
+        // Utility functions
         function parseNuDate(dateStr) {
             const parts = dateStr.split(' ');
             if (parts.length === 3) {
@@ -913,6 +921,7 @@
             return 'Otros';
         }
 
+        // Analysis and visualization functions
         function analyzeData() {
             const totalExpenses = transactionData.reduce((sum, t) => sum + t.amount, 0);
             const totalTransactions = transactionData.length;
@@ -1017,7 +1026,14 @@
                             beginAtZero: true,
                             ticks: {
                                 callback: function(value) {
-                                    return '
+                                    return 'cion)) {
+                            const transaction = {
+                                description: descripcion,
+                                amount: amount,
+                                date: parseBBVADate(fecha),
+                                category: categorizeTransaction(descripcion)
+                            };
+                            transactionData.push(transaction);
                         }
                     }
                 }
@@ -1111,13 +1127,7 @@
                         const descripcion = line.replace(fecha, '').replace(montoMatch[0], '').trim();
                         const amount = parseFloat(montoMatch[1].replace(/,/g, ''));
                         
-                        if (!isNaN(amount) && amount > 0 && isExpenseTransaction(descripcion)) {
-                            const transaction = {
-                                description: descripcion,
-                                amount: amount,
-                                date: new Date(fecha.replace(/-/g, '/')),
-                                category: categorizeTransaction(descripcion)
-                            }; + value.toLocaleString();
+                        if (!isNaN(amount) && amount > 0 && isExpenseTransaction(descrip + value.toLocaleString();
                                 }
                             }
                         }
@@ -1151,7 +1161,14 @@
         }
     </script>
 </body>
-</html>
+</html>cion)) {
+                            const transaction = {
+                                description: descripcion,
+                                amount: amount,
+                                date: parseBBVADate(fecha),
+                                category: categorizeTransaction(descripcion)
+                            };
+                            transactionData.push(transaction);
                         }
                     }
                 }
@@ -1245,10 +1262,4 @@
                         const descripcion = line.replace(fecha, '').replace(montoMatch[0], '').trim();
                         const amount = parseFloat(montoMatch[1].replace(/,/g, ''));
                         
-                        if (!isNaN(amount) && amount > 0 && isExpenseTransaction(descripcion)) {
-                            const transaction = {
-                                description: descripcion,
-                                amount: amount,
-                                date: new Date(fecha.replace(/-/g, '/')),
-                                category: categorizeTransaction(descripcion)
-                            };
+                        if (!isNaN(amount) && amount > 0 && isExpenseTransaction(descrip
