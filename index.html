@@ -613,8 +613,43 @@
             }
         }
         // Bank-specific PDF processors
-        async function processBBVAPDF(text) {
+       async function processBBVAPDF(text) {
+    // === DEBUG COMPLETO ===
+    console.log('=== DEBUG BBVA PDF ===');
+    console.log('Texto completo extraído (primeros 2000 caracteres):');
+    console.log(text.substring(0, 2000));
+    
     const lines = text.split('\n');
+    console.log(`Total de líneas: ${lines.length}`);
+    
+    // Buscar líneas que contengan fechas
+    const linesWithDates = lines.filter(line => /\d{1,2}\/[A-Z]{3}/.test(line));
+    console.log(`Líneas con fechas encontradas: ${linesWithDates.length}`);
+    console.log('Primeras 10 líneas con fechas:');
+    linesWithDates.slice(0, 10).forEach((line, i) => {
+        console.log(`${i+1}: "${line}"`);
+    });
+    
+    // Buscar líneas que contengan números (posibles montos)
+    const linesWithNumbers = lines.filter(line => /[\d,]+\.?\d*/.test(line) && line.length > 10);
+    console.log(`Líneas con números encontradas: ${linesWithNumbers.length}`);
+    console.log('Primeras 10 líneas con números:');
+    linesWithNumbers.slice(0, 10).forEach((line, i) => {
+        console.log(`${i+1}: "${line}"`);
+    });
+    
+    // Buscar líneas que contengan "SPEI" o "DEPOSITO"
+    const linesWithTransactions = lines.filter(line => 
+        line.includes('SPEI') || line.includes('DEPOSITO') || line.includes('RETIRO')
+    );
+    console.log(`Líneas con palabras clave encontradas: ${linesWithTransactions.length}`);
+    console.log('Primeras 10 líneas con transacciones:');
+    linesWithTransactions.slice(0, 10).forEach((line, i) => {
+        console.log(`${i+1}: "${line}"`);
+    });
+    
+    // === FIN DEBUG ===
+    
     transactionData = [];
     
     // Patrones mejorados para diferentes formatos de BBVA
@@ -700,17 +735,18 @@
         }
     }
     
-    console.log(`BBVA Mejorado: Procesadas ${transactionData.length} transacciones`);
+    console.log(`BBVA Debug: Procesadas ${transactionData.length} transacciones`);
     
     // Debug: mostrar primeras transacciones encontradas
     if (transactionData.length > 0) {
-        console.log('Primeras 3 transacciones encontradas:');
-        transactionData.slice(0, 3).forEach((t, i) => {
+        console.log('Primeras 5 transacciones encontradas:');
+        transactionData.slice(0, 5).forEach((t, i) => {
             console.log(`${i+1}. ${t.description} - $${t.amount} - ${t.category}`);
         });
+    } else {
+        console.log('⚠️ NO se encontraron transacciones válidas');
     }
 }
-
         async function processNuPDF(text) {
             const lines = text.split('\n');
             transactionData = [];
