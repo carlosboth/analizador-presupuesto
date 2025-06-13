@@ -614,84 +614,171 @@
         }
         // Bank-specific PDF processors
       // REEMPLAZA TODA LA FUNCIÓN processBBVAPDF CON ESTA:
+// VERSIÓN 2: PROCESADOR BBVA MEJORADO PARA TRANSACCIONES INDIVIDUALES
 async function processBBVAPDF(text) {
-    console.log('=== PROCESADOR BBVA CORREGIDO ===');
+    console.log('=== PROCESADOR BBVA v2 ===');
     transactionData = [];
     
-    // Dividir el texto en bloques por líneas
-    const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    // Primero, buscar y separar las transacciones usando patrones específicos
+    // Las transacciones de BBVA tienen este patrón: FECHA FECHA DESCRIPCIÓN... REFERENCIAS... MONTOS
     
-    console.log(`Total líneas a procesar: ${lines.length}`);
+    // Buscar bloques de transacciones usando múltiples separadores
+    const transactionBlocks = [];
     
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
+    // Separar por fechas consecutivas que indican nueva transacción
+    const datePattern = /(\d{1,2}\/[A-Z]{3})\s+(\d{1,2}\/[A-Z]{3})/g;
+    let match;
+    let lastIndex = 0;
+    
+    while ((match = datePattern.exec(text)) !== null) {
+        if (lastIndex > 0) {
+            // Extraer el bloque anterior
+            const block = text.substring(lastIndex, match.index).trim();
+            if (block.length > 20) {
+                transactionBlocks.push(block);
+            }
+        }
+        lastIndex = match.index;
+    }
+    
+    // Agregar el último bloque
+    if (lastIndex > 0) {
+        const lastBlock = text.substring(lastIndex).trim();
+        if (lastBlock.length > 20) {
+            transactionBlocks.push(lastBlock);
+        }
+    }
+    
+    console.log(`📦 Bloques de transacciones encontrados: ${transactionBlocks.length}`);
+    
+    // Procesar cada bloque
+    transactionBlocks.forEach((block, index) => {
+        console.log(`\n--- Procesando bloque ${index + 1} ---`);
+        console.log(`Bloque: "${block.substring(0, 100)}..."`);
         
-        // Buscar líneas que contengan patrones de transacciones BBVA
-        // Basado en el debug real: fechas en formato DD/MMM
-        const dateMatch = line.match(/(\d{1,2}\/[A-Z]{3})/);
+        // Extraer fechas del bloque
+        const dateMatches = block.match(/(\d{1,2}\/[A-Z]{3})/g);
+        if (!dateMatches || dateMatches.length < 2) return;
         
-        if (dateMatch) {
-            // Extraer todos los números posibles (montos)
-            const numberMatches = line.match(/([\d,]+\.\d{2})/g);
+        const operationDate = dateMatches[0];
+        const liquidationDate = dateMatches[1];
+        
+        // Buscar montos en el bloque (números con formato X.XX o X,XXX.XX)
+        const amountMatches = block.match(/([\d,]+\.\d{2})/g);
+        if (!amountMatches) return;
+        
+        // El monto de la transacción suele ser el más pequeño o el primero
+        let transactionAmount = null;
+        for (const amountStr of amountMatches) {
+            const amount = parseFloat(amountStr.replace(/,/g, ''));
+            if (amount > 0 && amount < 100000) { // Filtrar saldos muy grandes
+                transactionAmount = amount;
+                break;
+            }
+        }
+        
+        if (!transactionAmount) return;
+        
+        // Extraer descripción
+        let description = block;
+        
+        // Remover fechas
+        dateMatches.forEach(date => {
+            description = description.replace(new RegExp(date, 'g'), '');
+        });
+        
+        // Remover montos
+        amountMatches.forEach(amount => {
+            description = description.replace(new RegExp(amount.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), '');
+        });
+        
+        // Remover referencias y códigos comunes
+        description = description.replace(/Referencia\s+[\w\d]+/gi, '');
+        description = description.replace(/MBAN\d+/gi, '');
+        description = description.replace(/\d{10,}/g, ''); // Números largos (referencias)
+        description = description.replace(/RFC:\s*[\w\d]+/gi, '');
+        description = description.replace(/AUT:\s*\d+/gi, '');
+        description = description.replace(/\*{4,}/g, ''); // Asteriscos
+        
+        // Limpiar espacios múltiples
+        description = description.replace(/\s+/g, ' ').trim();
+        
+        // Extraer la parte principal de la descripción (primeras palabras significativas)
+        const words = description.split(' ').filter(word => 
+            word.length > 2 && 
+            !/^\d+$/.test(word) && 
+            !word.includes(':')
+        );
+        
+        const cleanDescription = words.slice(0, 4).join(' ').trim();
+        
+        if (cleanDescription.length > 5) {
+            const transaction = {
+                description: cleanDescription,
+                amount: transactionAmount,
+                date: parseBBVADate(operationDate),
+                category: categorizeTransaction(cleanDescription)
+            };
             
-            if (numberMatches && numberMatches.length > 0) {
-                // El último número suele ser el saldo, el anterior el monto
-                let transactionAmount = null;
-                
-                if (numberMatches.length >= 2) {
-                    // Si hay múltiples números, el penúltimo suele ser el monto de la transacción
-                    transactionAmount = numberMatches[numberMatches.length - 2];
-                } else {
-                    // Si solo hay uno, usarlo como monto
-                    transactionAmount = numberMatches[0];
-                }
-                
-                if (transactionAmount) {
-                    const amount = parseFloat(transactionAmount.replace(/,/g, ''));
+            transactionData.push(transaction);
+            console.log(`✅ Transacción: "${cleanDescription}" - $${transactionAmount} - ${transaction.category}`);
+        }
+    });
+    
+    // Si no encontramos transacciones con el método de bloques, usar método línea por línea
+    if (transactionData.length === 0) {
+        console.log('⚠️ Método de bloques no funcionó, intentando línea por línea...');
+        
+        const lines = text.split(/\s{3,}|\n/).filter(line => line.trim().length > 10);
+        
+        for (const line of lines) {
+            // Buscar patrones específicos de transacciones BBVA
+            const patterns = [
+                /(\d{1,2}\/[A-Z]{3})\s+(\d{1,2}\/[A-Z]{3})\s+(SPEI|DEPOSITO|RETIRO|PAGO|VENTA)\s+([^0-9]+?)\s+([\d,]+\.\d{2})/,
+                /(\d{1,2}\/[A-Z]{3})\s+(SPEI|DEPOSITO|RETIRO|PAGO|VENTA)\s+([^0-9]+?)\s+([\d,]+\.\d{2})/
+            ];
+            
+            for (const pattern of patterns) {
+                const match = line.match(pattern);
+                if (match) {
+                    const amount = parseFloat(match[match.length - 1].replace(/,/g, ''));
+                    const desc = match[match.length - 2].trim();
                     
-                    // Extraer descripción limpiando la línea
-                    let description = line;
-                    description = description.replace(dateMatch[0], ''); // Quitar fecha
-                    description = description.replace(new RegExp(transactionAmount.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), ''); // Quitar monto
-                    
-                    // Limpiar números adicionales (saldos, referencias)
-                    description = description.replace(/([\d,]+\.\d{2})/g, '');
-                    description = description.replace(/\s+/g, ' ').trim();
-                    
-                    // Filtrar descripciones muy cortas o que sean solo números/espacios
-                    if (description.length > 5 && amount > 0 && !/^[\d\s\.]+$/.test(description)) {
+                    if (amount > 0 && desc.length > 3) {
                         const transaction = {
-                            description: description,
+                            description: desc,
                             amount: amount,
-                            date: parseBBVADate(dateMatch[0]),
-                            category: categorizeTransaction(description)
+                            date: parseBBVADate(match[1]),
+                            category: categorizeTransaction(desc)
                         };
                         
                         transactionData.push(transaction);
-                        
-                        console.log(`✅ Transacción encontrada: ${description} - $${amount} - ${transaction.category}`);
+                        console.log(`✅ Línea: "${desc}" - $${amount} - ${transaction.category}`);
                     }
                 }
             }
         }
     }
     
-    console.log(`🎯 BBVA: Procesadas ${transactionData.length} transacciones válidas`);
+    console.log(`🎯 BBVA v2: Procesadas ${transactionData.length} transacciones válidas`);
     
-    // Debug final
+    // Debug final con resumen
     if (transactionData.length > 0) {
-        console.log('📊 Resumen de categorías encontradas:');
+        console.log('\n📊 Resumen por categorías:');
         const categorySummary = {};
         transactionData.forEach(t => {
             categorySummary[t.category] = (categorySummary[t.category] || 0) + 1;
         });
-        console.log(categorySummary);
+        console.table(categorySummary);
+        
+        console.log('\n📋 Primeras 5 transacciones:');
+        transactionData.slice(0, 5).forEach((t, i) => {
+            console.log(`${i+1}. ${t.description} - $${t.amount} - ${t.category}`);
+        });
     } else {
         console.log('❌ NO se encontraron transacciones válidas');
-        console.log('📝 Revisando las primeras 10 líneas con fechas:');
-        lines.filter(line => /\d{1,2}\/[A-Z]{3}/.test(line))
-             .slice(0, 10)
-             .forEach((line, i) => console.log(`${i+1}: "${line}"`));
+        console.log('🔍 Mostrando texto de muestra para debug:');
+        console.log(text.substring(0, 1000));
     }
 }
         async function processNuPDF(text) {
