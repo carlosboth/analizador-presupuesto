@@ -613,138 +613,85 @@
             }
         }
         // Bank-specific PDF processors
-       async function processBBVAPDF(text) {
-    // === DEBUG COMPLETO ===
-    console.log('=== DEBUG BBVA PDF ===');
-    console.log('Texto completo extraído (primeros 2000 caracteres):');
-    console.log(text.substring(0, 2000));
-    
-    const lines = text.split('\n');
-    console.log(`Total de líneas: ${lines.length}`);
-    
-    // Buscar líneas que contengan fechas
-    const linesWithDates = lines.filter(line => /\d{1,2}\/[A-Z]{3}/.test(line));
-    console.log(`Líneas con fechas encontradas: ${linesWithDates.length}`);
-    console.log('Primeras 10 líneas con fechas:');
-    linesWithDates.slice(0, 10).forEach((line, i) => {
-        console.log(`${i+1}: "${line}"`);
-    });
-    
-    // Buscar líneas que contengan números (posibles montos)
-    const linesWithNumbers = lines.filter(line => /[\d,]+\.?\d*/.test(line) && line.length > 10);
-    console.log(`Líneas con números encontradas: ${linesWithNumbers.length}`);
-    console.log('Primeras 10 líneas con números:');
-    linesWithNumbers.slice(0, 10).forEach((line, i) => {
-        console.log(`${i+1}: "${line}"`);
-    });
-    
-    // Buscar líneas que contengan "SPEI" o "DEPOSITO"
-    const linesWithTransactions = lines.filter(line => 
-        line.includes('SPEI') || line.includes('DEPOSITO') || line.includes('RETIRO')
-    );
-    console.log(`Líneas con palabras clave encontradas: ${linesWithTransactions.length}`);
-    console.log('Primeras 10 líneas con transacciones:');
-    linesWithTransactions.slice(0, 10).forEach((line, i) => {
-        console.log(`${i+1}: "${line}"`);
-    });
-    
-    // === FIN DEBUG ===
-    
+      // REEMPLAZA TODA LA FUNCIÓN processBBVAPDF CON ESTA:
+async function processBBVAPDF(text) {
+    console.log('=== PROCESADOR BBVA CORREGIDO ===');
     transactionData = [];
     
-    // Patrones mejorados para diferentes formatos de BBVA
-    const fullTransactionPattern = /(\d{1,2}\/[A-Z]{3})\s+(\d{1,2}\/[A-Z]{3})\s+(.+?)\s+([\d,]+\.?\d*)\s*$/;
-    const simpleTransactionPattern = /(\d{1,2}\/[A-Z]{3})\s+(.+?)\s+([\d,]+\.?\d*)\s*$/;
-    const datePattern = /(\d{1,2}\/[A-Z]{3})/;
+    // Dividir el texto en bloques por líneas
+    const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    
+    console.log(`Total líneas a procesar: ${lines.length}`);
     
     for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
+        const line = lines[i];
         
-        // Saltar líneas de encabezado
-        if (line.includes('FECHA') || line.includes('DESCRIPCION') || line.includes('REFERENCIA') || line.length < 10) {
-            continue;
-        }
+        // Buscar líneas que contengan patrones de transacciones BBVA
+        // Basado en el debug real: fechas en formato DD/MMM
+        const dateMatch = line.match(/(\d{1,2}\/[A-Z]{3})/);
         
-        let transaction = null;
-        
-        // Patrón 1: FECHA FECHA DESCRIPCION MONTO (formato completo)
-        const fullMatch = line.match(fullTransactionPattern);
-        if (fullMatch) {
-            const [_, fechaOper, fechaLiq, descripcion, montoStr] = fullMatch;
-            const amount = parseFloat(montoStr.replace(/[,$]/g, ''));
+        if (dateMatch) {
+            // Extraer todos los números posibles (montos)
+            const numberMatches = line.match(/([\d,]+\.\d{2})/g);
             
-            if (!isNaN(amount) && amount > 0 && descripcion.length > 3) {
-                transaction = {
-                    description: descripcion.trim(),
-                    amount: amount,
-                    date: parseBBVADate(fechaOper),
-                    category: categorizeTransaction(descripcion)
-                };
-            }
-        }
-        // Patrón 2: FECHA DESCRIPCION MONTO (formato simple)
-        else if (!fullMatch) {
-            const simpleMatch = line.match(simpleTransactionPattern);
-            if (simpleMatch) {
-                const [_, fecha, descripcion, montoStr] = simpleMatch;
-                const amount = parseFloat(montoStr.replace(/[,$]/g, ''));
+            if (numberMatches && numberMatches.length > 0) {
+                // El último número suele ser el saldo, el anterior el monto
+                let transactionAmount = null;
                 
-                if (!isNaN(amount) && amount > 0 && descripcion.length > 3) {
-                    transaction = {
-                        description: descripcion.trim(),
-                        amount: amount,
-                        date: parseBBVADate(fecha),
-                        category: categorizeTransaction(descripcion)
-                    };
+                if (numberMatches.length >= 2) {
+                    // Si hay múltiples números, el penúltimo suele ser el monto de la transacción
+                    transactionAmount = numberMatches[numberMatches.length - 2];
+                } else {
+                    // Si solo hay uno, usarlo como monto
+                    transactionAmount = numberMatches[0];
                 }
-            }
-        }
-        
-        // Patrón 3: Busqueda flexible para líneas que contengan fecha y monto
-        if (!transaction && datePattern.test(line)) {
-            const montoMatches = line.match(/([\d,]+\.?\d*)/g);
-            if (montoMatches && montoMatches.length > 0) {
-                // Tomar el último número como monto
-                const montoStr = montoMatches[montoMatches.length - 1];
-                const amount = parseFloat(montoStr.replace(/[,$]/g, ''));
                 
-                if (!isNaN(amount) && amount > 0) {
-                    // Extraer descripción eliminando fecha y monto
-                    let descripcion = line;
-                    const fechaMatch = line.match(datePattern);
-                    if (fechaMatch) {
-                        descripcion = descripcion.replace(fechaMatch[0], '');
-                    }
-                    descripcion = descripcion.replace(montoStr, '').trim();
+                if (transactionAmount) {
+                    const amount = parseFloat(transactionAmount.replace(/,/g, ''));
                     
-                    if (descripcion.length > 3) {
-                        transaction = {
-                            description: descripcion,
+                    // Extraer descripción limpiando la línea
+                    let description = line;
+                    description = description.replace(dateMatch[0], ''); // Quitar fecha
+                    description = description.replace(new RegExp(transactionAmount.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), ''); // Quitar monto
+                    
+                    // Limpiar números adicionales (saldos, referencias)
+                    description = description.replace(/([\d,]+\.\d{2})/g, '');
+                    description = description.replace(/\s+/g, ' ').trim();
+                    
+                    // Filtrar descripciones muy cortas o que sean solo números/espacios
+                    if (description.length > 5 && amount > 0 && !/^[\d\s\.]+$/.test(description)) {
+                        const transaction = {
+                            description: description,
                             amount: amount,
-                            date: parseBBVADate(fechaMatch[0]),
-                            category: categorizeTransaction(descripcion)
+                            date: parseBBVADate(dateMatch[0]),
+                            category: categorizeTransaction(description)
                         };
+                        
+                        transactionData.push(transaction);
+                        
+                        console.log(`✅ Transacción encontrada: ${description} - $${amount} - ${transaction.category}`);
                     }
                 }
             }
-        }
-        
-        // Agregar transacción si es válida
-        if (transaction) {
-            transactionData.push(transaction);
         }
     }
     
-    console.log(`BBVA Debug: Procesadas ${transactionData.length} transacciones`);
+    console.log(`🎯 BBVA: Procesadas ${transactionData.length} transacciones válidas`);
     
-    // Debug: mostrar primeras transacciones encontradas
+    // Debug final
     if (transactionData.length > 0) {
-        console.log('Primeras 5 transacciones encontradas:');
-        transactionData.slice(0, 5).forEach((t, i) => {
-            console.log(`${i+1}. ${t.description} - $${t.amount} - ${t.category}`);
+        console.log('📊 Resumen de categorías encontradas:');
+        const categorySummary = {};
+        transactionData.forEach(t => {
+            categorySummary[t.category] = (categorySummary[t.category] || 0) + 1;
         });
+        console.log(categorySummary);
     } else {
-        console.log('⚠️ NO se encontraron transacciones válidas');
+        console.log('❌ NO se encontraron transacciones válidas');
+        console.log('📝 Revisando las primeras 10 líneas con fechas:');
+        lines.filter(line => /\d{1,2}\/[A-Z]{3}/.test(line))
+             .slice(0, 10)
+             .forEach((line, i) => console.log(`${i+1}: "${line}"`));
     }
 }
         async function processNuPDF(text) {
