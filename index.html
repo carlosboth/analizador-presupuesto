@@ -338,16 +338,17 @@
         let categoryChart = null;
         let trendChart = null;
 
-        // Configuración de categorías
+        // Configuración de categorías (mejorada para transacciones mexicanas)
         const categories = {
-            'Alimentación': ['supermercado', 'mercado', 'abarrotes', 'tienda', 'grocery', 'market', 'soriana', 'walmart', 'chedraui', 'oxxo', 'seven', '7-eleven'],
-            'Restaurantes': ['restaurante', 'restaurant', 'comida', 'food', 'burger', 'pizza', 'taco', 'café', 'coffee', 'bar', 'cantina', 'mc', 'kfc', 'subway', 'dominos'],
-            'Transporte': ['gasolina', 'gas', 'uber', 'taxi', 'metro', 'autobus', 'bus', 'parking', 'estacionamiento', 'pemex', 'shell', 'bp'],
-            'Entretenimiento': ['cine', 'cinema', 'netflix', 'spotify', 'juego', 'game', 'teatro', 'concierto', 'club', 'gym', 'deporte'],
-            'Servicios': ['luz', 'agua', 'gas', 'telefono', 'internet', 'cable', 'netflix', 'spotify', 'servicio', 'cfe', 'telmex', 'telcel'],
-            'Salud': ['farmacia', 'hospital', 'doctor', 'medicina', 'dental', 'laboratorio', 'clinica', 'seguro'],
-            'Compras': ['amazon', 'mercadolibre', 'liverpool', 'palacio', 'sears', 'tienda', 'ropa', 'zapatos', 'electronico'],
-            'Efectivo': ['atm', 'cajero', 'retiro', 'efectivo', 'cash'],
+            'Alimentación': ['supermercado', 'mercado', 'abarrotes', 'tienda', 'grocery', 'market', 'soriana', 'walmart', 'chedraui', 'oxxo', 'seven', '7-eleven', 'farmacia guadalajara', 'benavides', 'del rio', 'bodega aurrera', 'comercial mexicana', 'coppel'],
+            'Restaurantes': ['restaurante', 'restaurant', 'comida', 'food', 'burger', 'pizza', 'taco', 'café', 'coffee', 'bar', 'cantina', 'mc', 'kfc', 'subway', 'dominos', 'uber eats', 'rappi', 'didi food', 'sin delantal', 'starbucks', 'vips', 'sanborns', 'applebees', 'chilis'],
+            'Transporte': ['gasolina', 'gas', 'uber', 'taxi', 'metro', 'autobus', 'bus', 'parking', 'estacionamiento', 'pemex', 'shell', 'bp', 'mobil', 'didi', 'beat', 'caseta', 'autopista', 'peaje'],
+            'Entretenimiento': ['cine', 'cinema', 'netflix', 'spotify', 'juego', 'game', 'teatro', 'concierto', 'club', 'gym', 'deporte', 'cinepolis', 'cinemex', 'smart fit', 'sports world', 'disney', 'amazon prime', 'hbo'],
+            'Servicios': ['luz', 'agua', 'gas', 'telefono', 'internet', 'cable', 'netflix', 'spotify', 'servicio', 'cfe', 'telmex', 'telcel', 'att', 'movistar', 'unefon', 'izzi', 'sky', 'dish', 'megacable'],
+            'Salud': ['farmacia', 'hospital', 'doctor', 'medicina', 'dental', 'laboratorio', 'clinica', 'seguro', 'similares', 'guadalajara', 'benavides', 'del rio', 'issste', 'imss', 'medica sur', 'angeles'],
+            'Compras': ['amazon', 'mercadolibre', 'liverpool', 'palacio', 'sears', 'tienda', 'ropa', 'zapatos', 'electronico', 'elektra', 'coppel', 'famsa', 'office depot', 'best buy', 'radioshack'],
+            'Efectivo': ['atm', 'cajero', 'retiro', 'efectivo', 'cash', 'disposicion', 'retiro en cajero'],
+            'Transferencias': ['spei enviado', 'transferencia', 'pago cuenta tercero', 'pago a tercero', 'envio', 'transferencia enviada'],
             'Otros': []
         };
 
@@ -490,9 +491,9 @@
         function parseTransaction(headers, values) {
             const transaction = {};
             
-            // Buscar columnas relevantes
-            const descriptionFields = ['descripcion', 'concepto', 'description', 'merchant', 'comercio'];
-            const amountFields = ['monto', 'importe', 'amount', 'cantidad', 'cargo', 'abono'];
+            // Buscar columnas relevantes (mejorado para BBVA y otros bancos mexicanos)
+            const descriptionFields = ['descripcion', 'descripción', 'concepto', 'description', 'merchant', 'comercio', 'movimiento'];
+            const amountFields = ['monto', 'importe', 'amount', 'cantidad', 'cargo', 'abono', 'importe neto'];
             const dateFields = ['fecha', 'date', 'dia'];
             
             let description = '';
@@ -501,36 +502,99 @@
             
             headers.forEach((header, index) => {
                 const value = values[index];
+                const headerLower = String(header || '').toLowerCase().trim();
                 
-                if (descriptionFields.some(field => header.includes(field))) {
+                // Buscar descripción
+                if (descriptionFields.some(field => headerLower.includes(field))) {
                     description = String(value || '');
                 }
                 
-                if (amountFields.some(field => header.includes(field))) {
-                    const numValue = parseFloat(String(value || '0').replace(/[,$]/g, ''));
+                // Buscar monto
+                if (amountFields.some(field => headerLower.includes(field))) {
+                    const cleanValue = String(value || '0').replace(/[,$\s]/g, '');
+                    const numValue = parseFloat(cleanValue);
                     if (!isNaN(numValue) && Math.abs(numValue) > Math.abs(amount)) {
                         amount = numValue;
                     }
                 }
                 
-                if (dateFields.some(field => header.includes(field))) {
-                    const dateValue = new Date(value);
-                    if (!isNaN(dateValue.getTime())) {
+                // Buscar fecha (mejorado para formato BBVA)
+                if (dateFields.some(field => headerLower.includes(field))) {
+                    const dateValue = parseBBVADate(value);
+                    if (dateValue && !isNaN(dateValue.getTime())) {
                         date = dateValue;
                     }
                 }
             });
             
-            if (description && Math.abs(amount) > 0) {
+            // Filtrar solo gastos (transacciones que representan salidas de dinero)
+            if (description && Math.abs(amount) > 0 && isExpenseTransaction(description)) {
                 return {
                     description: description,
-                    amount: Math.abs(amount), // Usar valor absoluto para gastos
+                    amount: Math.abs(amount),
                     date: date,
                     category: categorizeTransaction(description)
                 };
             }
             
             return null;
+        }
+
+        // Función para parsear fechas de BBVA (formato "17/AGO", "18/AGO", etc.)
+        function parseBBVADate(dateStr) {
+            if (!dateStr) return new Date();
+            
+            const str = String(dateStr).trim();
+            
+            // Formato BBVA: "17/AGO"
+            if (str.includes('/') && str.length <= 10) {
+                const parts = str.split('/');
+                if (parts.length === 2) {
+                    const day = parseInt(parts[0]);
+                    const monthStr = parts[1].toUpperCase();
+                    
+                    const monthMap = {
+                        'ENE': 0, 'FEB': 1, 'MAR': 2, 'ABR': 3, 'MAY': 4, 'JUN': 5,
+                        'JUL': 6, 'AGO': 7, 'SEP': 8, 'OCT': 9, 'NOV': 10, 'DIC': 11
+                    };
+                    
+                    const month = monthMap[monthStr];
+                    if (month !== undefined && day >= 1 && day <= 31) {
+                        const currentYear = new Date().getFullYear();
+                        return new Date(currentYear, month, day);
+                    }
+                }
+            }
+            
+            // Formato estándar
+            const standardDate = new Date(dateStr);
+            if (!isNaN(standardDate.getTime())) {
+                return standardDate;
+            }
+            
+            return new Date();
+        }
+
+        // Función para identificar si es un gasto (no un ingreso)
+        function isExpenseTransaction(description) {
+            const desc = description.toLowerCase();
+            
+            // Excluir ingresos típicos
+            const incomeKeywords = [
+                'spei recibido', 'deposito', 'depósito', 'transferencia recibida',
+                'pago de nomina', 'nómina', 'salario', 'sueldo', 'abono',
+                'intereses', 'rendimiento', 'devolucion', 'devolución',
+                'reembolso', 'cashback'
+            ];
+            
+            // Si contiene palabras de ingreso, no es gasto
+            for (const keyword of incomeKeywords) {
+                if (desc.includes(keyword)) {
+                    return false;
+                }
+            }
+            
+            return true; // Por defecto, considerar como gasto
         }
 
         function categorizeTransaction(description) {
