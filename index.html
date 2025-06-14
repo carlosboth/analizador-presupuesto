@@ -480,8 +480,7 @@
                 } else {
                     throw new Error('Formato de archivo no soportado. Por favor usa CSV, Excel o PDF.');
                 }
-                console.log('🔍 DEBUG: transactionData.length después de processPDF =', transactionData.length);
-                console.log('🔍 DEBUG: transactionData =', transactionData);
+                
                 if (transactionData.length === 0) {
                     pendingFileData = {
                         file: file,
@@ -504,18 +503,8 @@
                     return;
                 }
                 
-               try {
-    console.log('🔍 DEBUG: Llamando analyzeData()...');
-    analyzeData();
-    console.log('🔍 DEBUG: analyzeData() completado');
-    
-    console.log('🔍 DEBUG: Llamando showResults()...');
-    showResults();
-    console.log('🔍 DEBUG: showResults() completado');
-} catch (analyzeError) {
-    console.error('🔥 ERROR en analyzeData/showResults:', analyzeError);
-    throw analyzeError; // Re-throw para que vaya al catch principal
-}
+               analyzeData();
+               showResults();
                 
             } catch (error) {
                 pendingFileData = {
@@ -660,13 +649,10 @@ async function processBBVAPDF(text) {
         }
     }
     
-    console.log(`📦 Bloques de transacciones encontrados: ${transactionBlocks.length}`);
-    
+     
     // Procesar cada bloque
     transactionBlocks.forEach((block, index) => {
-        console.log(`\n--- Procesando bloque ${index + 1} ---`);
-        console.log(`Bloque: "${block.substring(0, 100)}..."`);
-        
+               
         // Extraer fechas del bloque
         const dateMatches = block.match(/(\d{1,2}\/[A-Z]{3})/g);
         if (!dateMatches || dateMatches.length < 2) return;
@@ -732,14 +718,12 @@ async function processBBVAPDF(text) {
             };
             
             transactionData.push(transaction);
-            console.log(`✅ Transacción: "${cleanDescription}" - $${transactionAmount} - ${transaction.category}`);
-        }
+                  }
     });
     
     // Si no encontramos transacciones con el método de bloques, usar método línea por línea
     if (transactionData.length === 0) {
-        console.log('⚠️ Método de bloques no funcionó, intentando línea por línea...');
-        
+                
         const lines = text.split(/\s{3,}|\n/).filter(line => line.trim().length > 10);
         
         for (const line of lines) {
@@ -764,33 +748,17 @@ async function processBBVAPDF(text) {
                         };
                         
                         transactionData.push(transaction);
-                        console.log(`✅ Línea: "${desc}" - $${amount} - ${transaction.category}`);
+                       
                     }
                 }
             }
         }
     }
     
-    console.log(`🎯 BBVA v2: Procesadas ${transactionData.length} transacciones válidas`);
+   
     
     // Debug final con resumen
-    if (transactionData.length > 0) {
-        console.log('\n📊 Resumen por categorías:');
-        const categorySummary = {};
-        transactionData.forEach(t => {
-            categorySummary[t.category] = (categorySummary[t.category] || 0) + 1;
-        });
-        console.table(categorySummary);
-        
-        console.log('\n📋 Primeras 5 transacciones:');
-        transactionData.slice(0, 5).forEach((t, i) => {
-            console.log(`${i+1}. ${t.description} - $${t.amount} - ${t.category}`);
-        });
-    } else {
-        console.log('❌ NO se encontraron transacciones válidas');
-        console.log('🔍 Mostrando texto de muestra para debug:');
-        console.log(text.substring(0, 1000));
-    }
+       }
 }
         async function processNuPDF(text) {
             const lines = text.split('\n');
