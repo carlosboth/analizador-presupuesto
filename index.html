@@ -504,9 +504,18 @@
                     return;
                 }
                 
-                analyzeData();
-                console.log('🔍 DEBUG: analyzeData() completado, llamando showResults()...');
-                showResults();
+               try {
+    console.log('🔍 DEBUG: Llamando analyzeData()...');
+    analyzeData();
+    console.log('🔍 DEBUG: analyzeData() completado');
+    
+    console.log('🔍 DEBUG: Llamando showResults()...');
+    showResults();
+    console.log('🔍 DEBUG: showResults() completado');
+} catch (analyzeError) {
+    console.error('🔥 ERROR en analyzeData/showResults:', analyzeError);
+    throw analyzeError; // Re-throw para que vaya al catch principal
+}
                 
             } catch (error) {
                 pendingFileData = {
