@@ -623,11 +623,14 @@ showLearningModal();
         }
         // Bank-specific PDF processors
       // REEMPLAZA TODA LA FUNCIÓN processBBVAPDF CON ESTA:
-// VERSIÓN 2: PROCESADOR BBVA MEJORADO PARA TRANSACCIONES INDIVIDUALES
+
+        // VERSIÓN 2: PROCESADOR BBVA MEJORADO PARA TRANSACCIONES INDIVIDUALES
 async function processBBVAPDF(text) {
     console.log('=== PROCESADOR BBVA v2 ===');
     console.log('🔍 DEBUG: Iniciando procesamiento...');
     transactionData = [];
+    
+    console.log('🔍 DEBUG: transactionData inicializada');
     
     // Primero, buscar y separar las transacciones usando patrones específicos
     // Las transacciones de BBVA tienen este patrón: FECHA FECHA DESCRIPCIÓN... REFERENCIAS... MONTOS
@@ -635,8 +638,13 @@ async function processBBVAPDF(text) {
     // Buscar bloques de transacciones usando múltiples separadores
     const transactionBlocks = [];
     
+    console.log('🔍 DEBUG: Creando transactionBlocks array');
+    
     // Separar por fechas consecutivas que indican nueva transacción
     const datePattern = /(\d{1,2}\/[A-Z]{3})\s+(\d{1,2}\/[A-Z]{3})/g;
+    
+    console.log('🔍 DEBUG: datePattern creado');
+    
     let match;
     let lastIndex = 0;
     
