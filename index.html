@@ -658,7 +658,7 @@ async function processBBVAPDF(text) {
         }
         lastIndex = match.index;
     }
-    
+    console.log('🔍 DEBUG: While loop completado');
     // Agregar el último bloque
     if (lastIndex > 0) {
         const lastBlock = text.substring(lastIndex).trim();
