@@ -628,7 +628,7 @@ showLearningModal();
 async function processBBVAPDF(text) {
     console.log('=== PROCESADOR BBVA v2 ===');
     console.log('🔍 DEBUG: Iniciando procesamiento...');
-    transactionData = [];
+    transactionData.length = 0; // Limpiar array sin reasignar
     
     console.log('🔍 DEBUG: transactionData inicializada');
     
