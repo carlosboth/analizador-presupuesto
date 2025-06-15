@@ -754,7 +754,7 @@ async function processBBVAPDF(text) {
                             description: desc,
                             amount: amount,
                             date: parseBBVADate(match[1]),
-                            category: categorizeTransactionSmart(desc)
+                            category: categorizeTransaction(desc)
                         };
                         
                         transactionData.push(transaction);
