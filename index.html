@@ -376,6 +376,10 @@
         let categoryChart = null;
         let trendChart = null;
         let pendingFileData = null;
+        // SISTEMA DE APRENDIZAJE
+        let learnedPatterns = {};
+        let pendingToLearn = {};
+        let uncategorizedTransactions = [];
 
         const categories = {
             'Ingresos': ['spei recibido', 'deposito', 'depósito', 'transferencia recibida', 'pago de nomina', 'nómina', 'salario', 'sueldo', 'abono', 'intereses', 'rendimiento', 'venta fondos', 'devolucion', 'devolución', 'reembolso', 'cashback', 'deposito de inversion', 'liquidacion'],
@@ -503,8 +507,13 @@
                     return;
                 }
                 
-               analyzeData();
-               showResults();
+               // Limpiar datos de aprendizaje de sesiones anteriores
+uncategorizedTransactions = [];
+
+analyzeData();
+
+// Mostrar modal de aprendizaje si hay transacciones sin categorizar
+showLearningModal();
                 
             } catch (error) {
                 pendingFileData = {
@@ -714,7 +723,7 @@ async function processBBVAPDF(text) {
                 description: cleanDescription,
                 amount: transactionAmount,
                 date: parseBBVADate(operationDate),
-                category: categorizeTransaction(cleanDescription)
+                category: categorizeTransactionSmart(cleanDescription)
             };
             
             transactionData.push(transaction);
@@ -744,7 +753,7 @@ async function processBBVAPDF(text) {
                             description: desc,
                             amount: amount,
                             date: parseBBVADate(match[1]),
-                            category: categorizeTransaction(desc)
+                            category: categorizeTransactionSmart(desc)
                         };
                         
                         transactionData.push(transaction);
@@ -1018,6 +1027,67 @@ async function processBBVAPDF(text) {
             
             return 'Otros';
         }
+
+        // NUEVA FUNCIÓN: Categorización inteligente con aprendizaje
+function categorizeTransactionSmart(description) {
+    const desc = description.toLowerCase();
+    
+    // PASO 1: Verificar patrones ya aprendidos
+    for (const [pattern, category] of Object.entries(learnedPatterns)) {
+        if (desc.includes(pattern.toLowerCase())) {
+            return category;
+        }
+    }
+    
+    // PASO 2: Categorización automática tradicional
+    for (const [category, keywords] of Object.entries(categories)) {
+        if (category === 'Otros') continue;
+        
+        for (const keyword of keywords) {
+            if (desc.includes(keyword)) {
+                return category;
+            }
+        }
+    }
+    
+    // PASO 3: Si no encuentra categoría, guardar para aprendizaje
+    const cleanDesc = extractMainWords(description);
+    
+    // Verificar si ya apareció antes
+    if (pendingToLearn[cleanDesc]) {
+        pendingToLearn[cleanDesc].count++;
+        pendingToLearn[cleanDesc].lastSeen = new Date();
+    } else {
+        pendingToLearn[cleanDesc] = {
+            count: 1,
+            originalDescription: description,
+            lastSeen: new Date()
+        };
+    }
+    
+    // Agregar a lista de no categorizadas
+    uncategorizedTransactions.push({
+        description: description,
+        cleanDescription: cleanDesc
+    });
+    
+    return 'Otros';
+}
+
+// FUNCIÓN AUXILIAR: Extraer palabras principales para crear patrones
+function extractMainWords(description) {
+    // Limpiar y extraer palabras importantes
+    const cleaned = description.toLowerCase()
+        .replace(/\d+/g, '') // Quitar números
+        .replace(/[^\w\s]/g, ' ') // Quitar caracteres especiales
+        .trim();
+    
+    const words = cleaned.split(/\s+/)
+        .filter(word => word.length > 3) // Solo palabras de más de 3 caracteres
+        .slice(0, 2); // Tomar las primeras 2 palabras importantes
+    
+    return words.join(' ');
+}
         // Analysis and visualization functions
         function analyzeData() {
     // Separar ingresos y gastos
@@ -1203,7 +1273,143 @@ async function processBBVAPDF(text) {
         budgetContainer.appendChild(budgetItem);
     });
 }
+        // FUNCIONES DEL SISTEMA DE APRENDIZAJE
+
+function showLearningModal() {
+    if (uncategorizedTransactions.length === 0) {
+        // No hay transacciones para aprender, continuar normalmente
+        showResults();
+        return;
+    }
+    
+    const modal = document.getElementById('learningModal');
+    const container = document.getElementById('learningTransactions');
+    container.innerHTML = '';
+    
+    // Eliminar duplicados
+    const uniqueTransactions = [...new Set(uncategorizedTransactions.map(t => t.cleanDescription))]
+        .map(cleanDesc => uncategorizedTransactions.find(t => t.cleanDescription === cleanDesc));
+    
+    uniqueTransactions.forEach((transaction, index) => {
+        const transactionDiv = document.createElement('div');
+        transactionDiv.style.cssText = `
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+        `;
+        
+        transactionDiv.innerHTML = `
+            <div style="font-weight: 600; margin-bottom: 10px; color: #2d3748;">
+                "${transaction.description}"
+            </div>
+            <div style="margin-bottom: 15px; color: #4a5568;">
+                ¿A qué categoría pertenece este gasto?
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                <button class="learn-btn" data-category="Alimentación" data-pattern="${transaction.cleanDescription}">🛒 Alimentación</button>
+                <button class="learn-btn" data-category="Restaurantes" data-pattern="${transaction.cleanDescription}">🍕 Restaurantes</button>
+                <button class="learn-btn" data-category="Transporte" data-pattern="${transaction.cleanDescription}">🚗 Transporte</button>
+                <button class="learn-btn" data-category="Servicios" data-pattern="${transaction.cleanDescription}">⚡ Servicios</button>
+                <button class="learn-btn" data-category="Salud" data-pattern="${transaction.cleanDescription}">🏥 Salud</button>
+                <button class="learn-btn" data-category="Entretenimiento" data-pattern="${transaction.cleanDescription}">🎬 Entretenimiento</button>
+                <button class="learn-btn" data-category="Compras" data-pattern="${transaction.cleanDescription}">🛍️ Compras</button>
+                <button class="learn-btn" data-category="Efectivo" data-pattern="${transaction.cleanDescription}">💵 Efectivo</button>
+                <button class="learn-btn" data-category="Otros" data-pattern="${transaction.cleanDescription}">❓ No lo sé</button>
+            </div>
+        `;
+        
+        container.appendChild(transactionDiv);
+    });
+    
+    modal.style.display = 'block';
+    
+    // Event listeners para los botones de categoría
+    document.querySelectorAll('.learn-btn').forEach(btn => {
+        btn.addEventListener('click', handleCategorySelection);
+    });
+    
+    // Event listener para finalizar
+    document.getElementById('finishLearning').addEventListener('click', finishLearning);
+}
+
+function handleCategorySelection(e) {
+    const pattern = e.target.dataset.pattern;
+    const category = e.target.dataset.category;
+    
+    if (category !== 'Otros') {
+        // Aprender el patrón
+        learnedPatterns[pattern] = category;
+        
+        // Recategorizar transacciones con este patrón
+        transactionData.forEach(transaction => {
+            if (transaction.description.toLowerCase().includes(pattern.toLowerCase())) {
+                transaction.category = category;
+            }
+        });
+    }
+    
+    // Marcar como seleccionado
+    e.target.style.background = '#667eea';
+    e.target.style.color = 'white';
+    
+    // Deshabilitar otros botones de este grupo
+    const parentDiv = e.target.parentElement;
+    parentDiv.querySelectorAll('.learn-btn').forEach(btn => {
+        if (btn !== e.target) {
+            btn.disabled = true;
+            btn.style.opacity = '0.5';
+        }
+    });
+}
+
+function finishLearning() {
+    document.getElementById('learningModal').style.display = 'none';
+    
+    // Recalcular análisis con las nuevas categorías
+    analyzeData();
+    showResults();
+}
+
+// CSS para los botones de aprendizaje
+const style = document.createElement('style');
+style.textContent = `
+    .learn-btn {
+        background: white;
+        border: 2px solid #e2e8f0;
+        padding: 8px 16px;
+        border-radius: 20px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        transition: all 0.3s ease;
+    }
+    .learn-btn:hover {
+        border-color: #667eea;
+        background: #f0f4ff;
+    }
+    .learn-btn:disabled {
+        cursor: not-allowed;
+    }
+`;
+document.head.appendChild(style);
 </script>
+    <!-- MODAL DE APRENDIZAJE -->
+    <div id="learningModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000;">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 40px; border-radius: 20px; max-width: 600px; width: 90%;">
+            <h2 style="text-align: center; color: #667eea; margin-bottom: 20px;">🧠 Ayuda al sistema a aprender</h2>
+            <p style="text-align: center; margin-bottom: 30px; color: #4a5568;">
+                Encontramos algunas transacciones que no pudimos categorizar automáticamente. 
+                ¿Puedes ayudarnos a mejorar?
+            </p>
+            
+            <div id="learningTransactions"></div>
+            
+            <div style="text-align: center; margin-top: 30px;">
+                <button id="finishLearning" class="btn">Continuar con el análisis</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
         
