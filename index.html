@@ -657,33 +657,39 @@ async function processBBVAPDF(text) {
     allTransactions.forEach((transaction, index) => {
         const { description, amount, date1 } = transaction;
         
-        // Determinar tipo basado en palabras clave específicas
-        let isIncome = false;
-        
-        const desc = description.toUpperCase();
-        
-        // INGRESOS - palabras muy específicas
-        if (desc.includes('SPEI RECIBIDO') || 
-            desc.includes('DEPOSITO') && !desc.includes('SPEI ENVIADO') ||
-            desc.includes('ABONO') ||
-            desc.includes('TRANSFERENCIA RECIBIDA') ||
-            desc.includes('VENTA FONDOS') ||
-            desc.includes('DEVOLUCION')) {
-            isIncome = true;
-        }
-        
-        // GASTOS - palabras específicas
-        if (desc.includes('SPEI ENVIADO') || 
-            desc.includes('RETIRO') ||
-            desc.includes('PAGO CUENTA') ||
-            desc.includes('CAJERO') ||
-            desc.includes('CARGO') ||
-            desc.includes('COMISION')) {
-            isIncome = false;
-        }
-        
-        const category = isIncome ? 'Ingresos' : categorizeExpenseByDescription(description);
-        
+       // Determinar tipo basado en palabras clave específicas
+let isIncome = false;
+
+const desc = description.toUpperCase();
+
+// GASTOS PRIMERO - más específicos
+if (desc.includes('SPEI ENVIADO') || 
+    desc.includes('RETIRO') ||
+    desc.includes('PAGO CUENTA') ||
+    desc.includes('CAJERO AUTOMATICO') ||
+    desc.includes('DISPOSICION') ||
+    desc.includes('CARGO') ||
+    desc.includes('COMISION')) {
+    isIncome = false; // ES GASTO
+    console.log(`GASTO detectado: ${description.substring(0, 30)}`);
+}
+// INGRESOS DESPUÉS - solo si NO es gasto
+else if (desc.includes('SPEI RECIBIDO') || 
+         desc.includes('DEPOSITO') && !desc.includes('TERCERO') ||
+         desc.includes('ABONO') ||
+         desc.includes('TRANSFERENCIA RECIBIDA') ||
+         desc.includes('VENTA FONDOS') ||
+         desc.includes('DEVOLUCION')) {
+    isIncome = true; // ES INGRESO
+    console.log(`INGRESO detectado: ${description.substring(0, 30)}`);
+}
+// POR DEFECTO: SI NO ESTÁ CLARO, ES GASTO
+else {
+    isIncome = false; // DEFAULT: GASTO
+    console.log(`GASTO por defecto: ${description.substring(0, 30)}`);
+}
+
+const category = isIncome ? 'Ingresos' : categorizeExpenseByDescription(description);        
         const processedTransaction = {
             description: description,
             amount: amount,
