@@ -249,6 +249,248 @@
             .charts-container {
                 grid-template-columns: 1fr;
             }
+
+            /* ESTILOS PARA GASTOS MANUALES */
+        .manual-expenses-section {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            margin: 20px 0;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .manual-expenses-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .manual-expenses-header h2 {
+            color: #667eea;
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+        }
+
+        .manual-expenses-header p {
+            color: #4a5568;
+            font-size: 1rem;
+        }
+
+        .expense-form {
+            background: #f8f9ff;
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+            border-left: 5px solid #667eea;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+
+        .form-input {
+            padding: 12px 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .form-input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            outline: none;
+        }
+
+        .form-select {
+            padding: 12px 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 1rem;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .form-select:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            outline: none;
+        }
+
+        .add-expense-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 25px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        .add-expense-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .expenses-list {
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        }
+
+        .expenses-header {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 20px;
+            font-weight: bold;
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr 0.5fr;
+            gap: 15px;
+        }
+
+        .expense-item {
+            padding: 15px 20px;
+            border-bottom: 1px solid #eee;
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr 0.5fr;
+            gap: 15px;
+            align-items: center;
+            transition: background 0.2s ease;
+        }
+
+        .expense-item:hover {
+            background: #f8f9fa;
+        }
+
+        .expense-item:last-child {
+            border-bottom: none;
+        }
+
+        .expense-description {
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        .expense-amount {
+            font-weight: bold;
+            color: #667eea;
+            font-size: 1.1rem;
+        }
+
+        .expense-category {
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .category-alimentacion { background: #e6fffa; color: #38b2ac; }
+        .category-transporte { background: #fed7d7; color: #e53e3e; }
+        .category-entretenimiento { background: #fef5e7; color: #dd6b20; }
+        .category-salud { background: #e6fffa; color: #38b2ac; }
+        .category-servicios { background: #ebf8ff; color: #3182ce; }
+        .category-restaurantes { background: #fef5e7; color: #dd6b20; }
+        .category-compras { background: #f0fff4; color: #38a169; }
+        .category-otros { background: #f7fafc; color: #4a5568; }
+
+        .expense-date {
+            color: #4a5568;
+            font-size: 0.9rem;
+        }
+
+        .delete-btn {
+            background: #fed7d7;
+            color: #e53e3e;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .delete-btn:hover {
+            background: #e53e3e;
+            color: white;
+        }
+
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .summary-card {
+            background: linear-gradient(135deg, #4facfe, #00f2fe);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(79, 172, 254, 0.3);
+        }
+
+        .summary-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .summary-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #718096;
+        }
+
+        .empty-state h3 {
+            margin-bottom: 10px;
+            color: #4a5568;
+        }
+
+        .show-manual-btn {
+            background: linear-gradient(135deg, #48bb78, #38a169);
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 25px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 20px auto;
+            display: block;
+        }
+
+        .show-manual-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(72, 187, 120, 0.3);
+        }
             
             .stats-grid {
                 grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -320,6 +562,7 @@
     <div class="stat-card">
         <div class="stat-value" id="totalIngresos">$0</div>
         <div class="stat-label">Ingresos Totales</div>
+        
     </div>
     <div class="stat-card">
         <div class="stat-value" id="totalExpenses">$0</div>
@@ -367,6 +610,97 @@
                     💡 <strong>Tip:</strong> Esta herramienta analiza tus patrones de gasto históricos. 
                     Para mejores resultados, usa datos de al menos 3 meses.
                 </p>
+            </div>
+            <!-- BOTÓN PARA MOSTRAR GASTOS MANUALES -->
+            <button onclick="showManualExpenses()" class="show-manual-btn">
+                💵 Agregar Gastos en Efectivo
+            </button>
+
+            <!-- SECCIÓN DE GASTOS MANUALES -->
+            <div class="manual-expenses-section" id="manualExpensesSection" style="display: none;">
+                <div class="manual-expenses-header">
+                    <h2>💵 Gastos en Efectivo</h2>
+                    <p>Agrega gastos que no aparecen en tu estado de cuenta (efectivo, propinas, etc.)</p>
+                </div>
+
+                <!-- Resumen de gastos manuales -->
+                <div class="summary-cards">
+                    <div class="summary-card">
+                        <div class="summary-value" id="manualExpensesCount">0</div>
+                        <div class="summary-label">Gastos Agregados</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-value" id="manualExpensesTotal">$0</div>
+                        <div class="summary-label">Total en Efectivo</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-value" id="manualExpensesAvg">$0</div>
+                        <div class="summary-label">Promedio por Gasto</div>
+                    </div>
+                </div>
+
+                <!-- Formulario para agregar gastos -->
+                <div class="expense-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="expenseDescription">Descripción del Gasto</label>
+                            <input type="text" id="expenseDescription" class="form-input" 
+                                   placeholder="Ej: Comida en puesto callejero" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="expenseAmount">Monto ($)</label>
+                            <input type="number" id="expenseAmount" class="form-input" 
+                                   placeholder="0.00" step="0.01" min="0.01" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="expenseCategory">Categoría</label>
+                            <select id="expenseCategory" class="form-select" required>
+                                <option value="">Seleccionar categoría</option>
+                                <option value="Alimentación">🛒 Alimentación</option>
+                                <option value="Restaurantes">🍕 Restaurantes</option>
+                                <option value="Transporte">🚗 Transporte</option>
+                                <option value="Entretenimiento">🎬 Entretenimiento</option>
+                                <option value="Salud">🏥 Salud</option>
+                                <option value="Compras">🛍️ Compras</option>
+                                <option value="Servicios">⚡ Servicios</option>
+                                <option value="Otros">❓ Otros</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="expenseDate">Fecha</label>
+                            <input type="date" id="expenseDate" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="expensePlace">Lugar (opcional)</label>
+                            <input type="text" id="expensePlace" class="form-input" 
+                                   placeholder="Ej: Mercado local">
+                        </div>
+                        <div class="form-group" style="display: flex; align-items: end;">
+                            <button type="button" id="addExpenseBtn" class="add-expense-btn">
+                                ➕ Agregar Gasto
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lista de gastos manuales -->
+                <div class="expenses-list">
+                    <div class="expenses-header">
+                        <div>Descripción</div>
+                        <div>Monto</div>
+                        <div>Categoría</div>
+                        <div>Fecha</div>
+                        <div>Acción</div>
+                    </div>
+                    <div id="expensesList">
+                        <div class="empty-state">
+                            <h3>No hay gastos en efectivo registrados</h3>
+                            <p>Agrega tu primer gasto usando el formulario de arriba</p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -1408,6 +1742,236 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
+        // SISTEMA DE GASTOS MANUALES
+        let manualExpenses = [];
+        let nextExpenseId = 1000; // Empezar en 1000 para evitar conflictos
+
+        // Inicializar gastos manuales cuando se carga la página
+        function initManualExpenses() {
+            // Configurar fecha por defecto (hoy)
+            const today = new Date().toISOString().split('T')[0];
+            const dateInput = document.getElementById('expenseDate');
+            if (dateInput) {
+                dateInput.value = today;
+            }
+
+            // Event listeners
+            const addBtn = document.getElementById('addExpenseBtn');
+            if (addBtn) {
+                addBtn.addEventListener('click', addManualExpense);
+            }
+            
+            // Enter para agregar gasto
+            const amountInput = document.getElementById('expenseAmount');
+            if (amountInput) {
+                amountInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        addManualExpense();
+                    }
+                });
+            }
+        }
+
+        // Función para mostrar la sección de gastos manuales
+        function showManualExpenses() {
+            const section = document.getElementById('manualExpensesSection');
+            if (section) {
+                section.style.display = 'block';
+                initManualExpenses();
+                
+                // Scroll suave a la sección
+                section.scrollIntoView({ behavior: 'smooth' });
+                
+                // Focus en el primer campo
+                setTimeout(() => {
+                    const descInput = document.getElementById('expenseDescription');
+                    if (descInput) descInput.focus();
+                }, 500);
+            }
+        }
+
+        // Función para agregar gasto manual
+        function addManualExpense() {
+            const description = document.getElementById('expenseDescription').value.trim();
+            const amount = parseFloat(document.getElementById('expenseAmount').value);
+            const category = document.getElementById('expenseCategory').value;
+            const date = document.getElementById('expenseDate').value;
+            const place = document.getElementById('expensePlace').value.trim();
+
+            // Validaciones
+            if (!description) {
+                alert('Por favor ingresa una descripción');
+                document.getElementById('expenseDescription').focus();
+                return;
+            }
+            
+            if (!amount || amount <= 0) {
+                alert('Por favor ingresa un monto válido');
+                document.getElementById('expenseAmount').focus();
+                return;
+            }
+            
+            if (!category) {
+                alert('Por favor selecciona una categoría');
+                document.getElementById('expenseCategory').focus();
+                return;
+            }
+            
+            if (!date) {
+                alert('Por favor selecciona una fecha');
+                document.getElementById('expenseDate').focus();
+                return;
+            }
+
+            // Crear nuevo gasto
+            const newExpense = {
+                id: nextExpenseId++,
+                description: description,
+                amount: amount,
+                category: category,
+                date: new Date(date),
+                place: place,
+                isManual: true
+            };
+
+            // Agregar a la lista
+            manualExpenses.push(newExpense);
+
+            // Agregar a transactionData global para análisis
+            transactionData.push(newExpense);
+            
+            // Recalcular análisis
+            analyzeData();
+
+            // Actualizar UI
+            updateManualExpensesDisplay();
+            clearExpenseForm();
+
+            console.log('Gasto manual agregado:', newExpense);
+            
+            // Mostrar confirmación
+            showSuccessMessage(`Gasto de $${amount.toLocaleString()} agregado correctamente`);
+        }
+
+        // Función para eliminar gasto manual
+        function deleteManualExpense(expenseId) {
+            if (confirm('¿Estás seguro de eliminar este gasto?')) {
+                // Eliminar de lista manual
+                manualExpenses = manualExpenses.filter(exp => exp.id !== expenseId);
+                
+                // Eliminar de transactionData global
+                transactionData = transactionData.filter(t => t.id !== expenseId);
+                
+                // Recalcular análisis
+                analyzeData();
+                
+                updateManualExpensesDisplay();
+                
+                showSuccessMessage('Gasto eliminado correctamente');
+            }
+        }
+
+        // Función para actualizar la visualización
+        function updateManualExpensesDisplay() {
+            const expensesList = document.getElementById('expensesList');
+            const count = document.getElementById('manualExpensesCount');
+            const total = document.getElementById('manualExpensesTotal');
+            const avg = document.getElementById('manualExpensesAvg');
+
+            if (!expensesList || !count || !total || !avg) return;
+
+            // Actualizar resumen
+            const totalAmount = manualExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+            const avgAmount = manualExpenses.length > 0 ? totalAmount / manualExpenses.length : 0;
+
+            count.textContent = manualExpenses.length;
+            total.textContent = `$${totalAmount.toLocaleString()}`;
+            avg.textContent = `$${avgAmount.toLocaleString()}`;
+
+            // Actualizar lista
+            if (manualExpenses.length === 0) {
+                expensesList.innerHTML = `
+                    <div class="empty-state">
+                        <h3>No hay gastos en efectivo registrados</h3>
+                        <p>Agrega tu primer gasto usando el formulario de arriba</p>
+                    </div>
+                `;
+            } else {
+                expensesList.innerHTML = manualExpenses
+                    .sort((a, b) => new Date(b.date) - new Date(a.date))
+                    .map(expense => {
+                        const categoryClass = `category-${expense.category.toLowerCase().replace(/[áéíóú]/g, function(match) {
+                            const accents = { 'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u' };
+                            return accents[match];
+                        })}`;
+                        const formattedDate = expense.date.toLocaleDateString('es-ES');
+                        const displayDescription = expense.place ? 
+                            `${expense.description} (${expense.place})` : 
+                            expense.description;
+
+                        return `
+                            <div class="expense-item">
+                                <div class="expense-description">${displayDescription}</div>
+                                <div class="expense-amount">$${expense.amount.toLocaleString()}</div>
+                                <div class="expense-category ${categoryClass}">${expense.category}</div>
+                                <div class="expense-date">${formattedDate}</div>
+                                <button class="delete-btn" onclick="deleteManualExpense(${expense.id})" title="Eliminar gasto">×</button>
+                            </div>
+                        `;
+                    }).join('');
+            }
+        }
+
+        // Función para limpiar formulario
+        function clearExpenseForm() {
+            document.getElementById('expenseDescription').value = '';
+            document.getElementById('expenseAmount').value = '';
+            document.getElementById('expenseCategory').value = '';
+            document.getElementById('expensePlace').value = '';
+            
+            // Mantener la fecha actual
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('expenseDate').value = today;
+            
+            // Focus en descripción para siguiente gasto
+            document.getElementById('expenseDescription').focus();
+        }
+
+        // Función para mostrar mensaje de éxito
+        function showSuccessMessage(message) {
+            // Crear elemento de notificación
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #48bb78;
+                color: white;
+                padding: 15px 20px;
+                border-radius: 10px;
+                box-shadow: 0 10px 25px rgba(72, 187, 120, 0.3);
+                z-index: 1000;
+                font-weight: 600;
+                transform: translateX(100%);
+                transition: transform 0.3s ease;
+            `;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            // Mostrar con animación
+            setTimeout(() => {
+                notification.style.transform = 'translateX(0)';
+            }, 100);
+            
+            // Ocultar después de 3 segundos
+            setTimeout(() => {
+                notification.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 3000);
+        }
 </script>
     <!-- MODAL DE APRENDIZAJE -->
     <div id="learningModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000;">
