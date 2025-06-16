@@ -624,49 +624,37 @@ showLearningModal();
         // Bank-specific PDF processors
       // REEMPLAZA TODA LA FUNCIÓN processBBVAPDF CON ESTA:
 
-        // VERSIÓN 2: PROCESADOR BBVA MEJORADO PARA TRANSACCIONES INDIVIDUALES
+// VERSIÓN SIMPLIFICADA TEMPORAL PARA PROBAR SISTEMA DE APRENDIZAJE
 async function processBBVAPDF(text) {
     console.log('=== PROCESADOR BBVA v2 ===');
     console.log('🔍 DEBUG: Iniciando procesamiento...');
-    transactionData.length = 0; // Limpiar array sin reasignar
+    transactionData.length = 0;
     
-    console.log('🔍 DEBUG: transactionData inicializada');
+    // Procesamiento simplificado - buscar transacciones directamente
+    const lines = text.split('\n');
     
-    // Primero, buscar y separar las transacciones usando patrones específicos
-    // Las transacciones de BBVA tienen este patrón: FECHA FECHA DESCRIPCIÓN... REFERENCIAS... MONTOS
-    
-    // Buscar bloques de transacciones usando múltiples separadores
-    const transactionBlocks = [];
-    
-    console.log('🔍 DEBUG: Creando transactionBlocks array');
-    
-    // Separar por fechas consecutivas que indican nueva transacción
-    const datePattern = /(\d{1,2}\/[A-Z]{3})\s+(\d{1,2}\/[A-Z]{3})/g;
-    
-    console.log('🔍 DEBUG: datePattern creado');
-    
-    let match;
-    let lastIndex = 0;
-    
-    while ((match = datePattern.exec(text)) !== null) {
-        if (lastIndex > 0) {
-            // Extraer el bloque anterior
-            const block = text.substring(lastIndex, match.index).trim();
-            if (block.length > 20) {
-                transactionBlocks.push(block);
+    for (const line of lines) {
+        // Buscar patrones básicos de transacciones
+        if (line.includes('SPEI') || line.includes('DEPOSITO') || line.includes('RETIRO')) {
+            // Buscar montos
+            const amountMatch = line.match(/([\d,]+\.\d{2})/);
+            if (amountMatch) {
+                const amount = parseFloat(amountMatch[0].replace(/,/g, ''));
+                if (amount > 0 && amount < 50000) {
+                    const transaction = {
+                        description: line.substring(0, 50).trim(),
+                        amount: amount,
+                        date: new Date(),
+                        category: categorizeTransaction(line)
+                    };
+                    transactionData.push(transaction);
+                }
             }
         }
-        lastIndex = match.index;
-    }
-    console.log('🔍 DEBUG: While loop completado');
-    // Agregar el último bloque
-    if (lastIndex > 0) {
-        const lastBlock = text.substring(lastIndex).trim();
-        if (lastBlock.length > 20) {
-            transactionBlocks.push(lastBlock);
-        }
     }
     
+    console.log(`🔍 DEBUG: Procesadas ${transactionData.length} transacciones`);
+}    
      
     // Procesar cada bloque
     transactionBlocks.forEach((block, index) => {
