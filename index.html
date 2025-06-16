@@ -622,205 +622,156 @@ showLearningModal();
             }
         }
         // Bank-specific PDF processors
-     // PROCESADOR BBVA ESPECÍFICO - BASADO EN PDF REAL
+     // PROCESADOR BBVA FINAL - MANEJO DE LÍNEAS CONCATENADAS
 async function processBBVAPDF(text) {
-    console.log('=== PROCESADOR BBVA ESPECÍFICO v3 ===');
+    console.log('=== PROCESADOR BBVA FINAL v4 ===');
     transactionData.length = 0;
     
-    // Dividir el texto en líneas
-    const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-    console.log(`Total de líneas: ${lines.length}`);
+    // Buscar todas las transacciones usando regex más específicos
+    const allTransactions = [];
     
-    let processedCount = 0;
-    let startProcessing = false;
+    // Patrón para encontrar transacciones individuales
+    // Busca: FECHA FECHA DESCRIPCION MONTO (múltiples formatos)
+    const transactionPattern = /(\d{1,2}\/[A-Z]{3})\s+(\d{1,2}\/[A-Z]{3})\s+([^0-9]+?)\s+([\d,]+\.\d{2})/g;
     
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
+    let match;
+    while ((match = transactionPattern.exec(text)) !== null) {
+        const [fullMatch, date1, date2, description, amount] = match;
         
-        // Buscar inicio de la sección "Detalle de Movimientos Realizados"
-        if (line.includes('Detalle de Movimientos Realizados')) {
-            startProcessing = true;
-            console.log('Iniciando procesamiento de movimientos...');
-            continue;
-        }
-        
-        // Parar si llegamos al final de los movimientos
-        if (line.includes('Total de Movimientos') || line.includes('TOTAL IMPORTE')) {
-            console.log('Fin de movimientos detectado');
-            break;
-        }
-        
-        if (!startProcessing) continue;
-        
-        // Buscar líneas que contengan fechas en formato DD/OCT o DD/NOV
-        const dateMatch = line.match(/(\d{1,2}\/[A-Z]{3})/);
-        
-        if (dateMatch) {
-            console.log(`Procesando línea: ${line.substring(0, 100)}...`);
-            
-            // NUEVO ENFOQUE: Buscar patrones específicos de BBVA
-            
-            // 1. Extraer la descripción (después de las fechas)
-            let description = line;
-            
-            // Quitar las fechas del inicio
-            const dateMatches = line.match(/\d{1,2}\/[A-Z]{3}/g);
-            if (dateMatches) {
-                dateMatches.forEach(date => {
-                    description = description.replace(date, '');
-                });
-            }
-            
-            // 2. Buscar montos en la línea (números con formato X,XXX.XX)
-            const amountMatches = line.match(/([\d,]+\.\d{2})/g);
-            
-            if (amountMatches && amountMatches.length > 0) {
-                // 3. Determinar si es ingreso o gasto por las palabras clave de BBVA
-                let isIncome = false;
-                
-                // Palabras que indican INGRESO en BBVA
-                const incomeKeywords = [
-                    'SPEI RECIBIDO', 'DEPOSITO', 'ABONO', 'TRANSFERENCIA RECIBIDA',
-                    'PAGO DE NOMINA', 'DEVOLUCION', 'VENTA FONDOS', 'DEPOSITO DE INVERSION'
-                ];
-                
-                // Palabras que indican GASTO en BBVA
-                const expenseKeywords = [
-                    'SPEI ENVIADO', 'RETIRO', 'PAGO CUENTA DE TERCERO', 'CAJERO AUTOMATICO',
-                    'DISPOSICION', 'CARGO', 'COMISION'
-                ];
-                
-                const upperLine = line.toUpperCase();
-                
-                // Verificar si es ingreso
-                for (const keyword of incomeKeywords) {
-                    if (upperLine.includes(keyword)) {
-                        isIncome = true;
-                        break;
-                    }
-                }
-                
-                // Si no es ingreso, verificar si es gasto explícito
-                let isExpense = false;
-                if (!isIncome) {
-                    for (const keyword of expenseKeywords) {
-                        if (upperLine.includes(keyword)) {
-                            isExpense = true;
-                            break;
-                        }
-                    }
-                }
-                
-                // 4. Procesar cada monto encontrado
-                for (const amountStr of amountMatches) {
-                    const amount = parseFloat(amountStr.replace(/,/g, ''));
-                    
-                    if (amount > 0) {
-                        // Limpiar descripción
-                        let cleanDescription = description;
-                        
-                        // Quitar montos de la descripción
-                        amountMatches.forEach(amt => {
-                            cleanDescription = cleanDescription.replace(amt, '');
-                        });
-                        
-                        // Limpiar espacios y caracteres extras
-                        cleanDescription = cleanDescription.replace(/\s+/g, ' ').trim();
-                        
-                        // Filtrar descripciones muy cortas
-                        if (cleanDescription.length > 3) {
-                            let category;
-                            
-                            if (isIncome) {
-                                category = 'Ingresos';
-                            } else {
-                                // Categorizar gasto
-                                category = categorizeExpense(cleanDescription);
-                            }
-                            
-                            const transaction = {
-                                description: cleanDescription,
-                                amount: amount,
-                                date: parseBBVADate(dateMatch[0]),
-                                category: category,
-                                type: isIncome ? 'INGRESO' : 'GASTO',
-                                originalLine: line.substring(0, 50) + '...' // Para debug
-                            };
-                            
-                            transactionData.push(transaction);
-                            processedCount++;
-                            
-                            if (processedCount <= 10) {
-                                console.log(`Transacción ${processedCount}: ${category} - ${cleanDescription.substring(0, 30)} - $${amount}`);
-                            }
-                        }
-                    }
-                }
-            }
+        const numAmount = parseFloat(amount.replace(/,/g, ''));
+        if (numAmount > 0) {
+            allTransactions.push({
+                date1: date1,
+                date2: date2,
+                description: description.trim(),
+                amount: numAmount,
+                fullMatch: fullMatch,
+                position: match.index
+            });
         }
     }
     
-    console.log(`BBVA Específico: Procesadas ${transactionData.length} transacciones`);
+    console.log(`Encontradas ${allTransactions.length} transacciones potenciales`);
     
-    // Estadísticas detalladas
-    const stats = {
+    // Procesar cada transacción
+    allTransactions.forEach((transaction, index) => {
+        const { description, amount, date1 } = transaction;
+        
+        // Determinar tipo basado en palabras clave específicas
+        let isIncome = false;
+        
+        const desc = description.toUpperCase();
+        
+        // INGRESOS - palabras muy específicas
+        if (desc.includes('SPEI RECIBIDO') || 
+            desc.includes('DEPOSITO') && !desc.includes('SPEI ENVIADO') ||
+            desc.includes('ABONO') ||
+            desc.includes('TRANSFERENCIA RECIBIDA') ||
+            desc.includes('VENTA FONDOS') ||
+            desc.includes('DEVOLUCION')) {
+            isIncome = true;
+        }
+        
+        // GASTOS - palabras específicas
+        if (desc.includes('SPEI ENVIADO') || 
+            desc.includes('RETIRO') ||
+            desc.includes('PAGO CUENTA') ||
+            desc.includes('CAJERO') ||
+            desc.includes('CARGO') ||
+            desc.includes('COMISION')) {
+            isIncome = false;
+        }
+        
+        const category = isIncome ? 'Ingresos' : categorizeExpenseByDescription(description);
+        
+        const processedTransaction = {
+            description: description,
+            amount: amount,
+            date: parseBBVADate(date1),
+            category: category,
+            type: isIncome ? 'INGRESO' : 'GASTO'
+        };
+        
+        transactionData.push(processedTransaction);
+        
+        if (index < 10) {
+            console.log(`Transacción ${index + 1}: ${category} - ${description.substring(0, 40)} - $${amount}`);
+        }
+    });
+    
+    console.log(`BBVA Final: Procesadas ${transactionData.length} transacciones`);
+    
+    // Estadísticas finales
+    const finalStats = {
         ingresos: { count: 0, total: 0 },
         gastos: { count: 0, total: 0 }
     };
     
     transactionData.forEach(t => {
         if (t.category === 'Ingresos') {
-            stats.ingresos.count++;
-            stats.ingresos.total += t.amount;
+            finalStats.ingresos.count++;
+            finalStats.ingresos.total += t.amount;
         } else {
-            stats.gastos.count++;
-            stats.gastos.total += t.amount;
+            finalStats.gastos.count++;
+            finalStats.gastos.total += t.amount;
         }
     });
     
-    console.log(`Ingresos: ${stats.ingresos.count} transacciones, $${stats.ingresos.total.toLocaleString()}`);
-    console.log(`Gastos: ${stats.gastos.count} transacciones, $${stats.gastos.total.toLocaleString()}`);
+    console.log(`FINAL - Ingresos: ${finalStats.ingresos.count} transacciones, $${finalStats.ingresos.total.toLocaleString()}`);
+    console.log(`FINAL - Gastos: ${finalStats.gastos.count} transacciones, $${finalStats.gastos.total.toLocaleString()}`);
+    
+    // Verificación contra totales esperados
+    const expectedTotal = finalStats.ingresos.total + finalStats.gastos.total;
+    console.log(`Total procesado: $${expectedTotal.toLocaleString()} (esperado ~$68,000)`);
 }
 
-// Función para categorizar gastos específica para BBVA
-function categorizeExpense(description) {
+// Función mejorada para categorizar gastos
+function categorizeExpenseByDescription(description) {
     const desc = description.toUpperCase();
     
-    // Categorías específicas para transacciones de BBVA
-    if (desc.includes('ABARROTES') || desc.includes('SUPERMERCADO') || desc.includes('MERCADO')) {
-        return 'Alimentación';
-    }
-    
-    if (desc.includes('RESTAURANT') || desc.includes('COMIDA') || desc.includes('PIZZA') || desc.includes('BURGER')) {
-        return 'Restaurantes';
-    }
-    
-    if (desc.includes('GASOLINA') || desc.includes('GAS') || desc.includes('UBER') || desc.includes('TAXI')) {
+    // Transporte
+    if (desc.includes('UBER') || desc.includes('TAXI') || desc.includes('GASOLINA') || desc.includes('GAS')) {
         return 'Transporte';
     }
     
-    if (desc.includes('RETIRO') || desc.includes('CAJERO') || desc.includes('EFECTIVO')) {
+    // Alimentación
+    if (desc.includes('ABARROTES') || desc.includes('SUPERMERCADO') || desc.includes('MERCADO') || desc.includes('TIENDA')) {
+        return 'Alimentación';
+    }
+    
+    // Restaurantes
+    if (desc.includes('RESTAURANT') || desc.includes('COMIDA') || desc.includes('FRUTA')) {
+        return 'Restaurantes';
+    }
+    
+    // Efectivo
+    if (desc.includes('RETIRO') || desc.includes('CAJERO') || desc.includes('EFECTIVO') || desc.includes('ATM')) {
         return 'Efectivo';
     }
     
-    if (desc.includes('SPEI ENVIADO') || desc.includes('TRANSFERENCIA') || desc.includes('PAGO CUENTA')) {
+    // Transferencias/Pagos
+    if (desc.includes('SPEI ENVIADO') || desc.includes('PAGO CUENTA') || desc.includes('TRANSFERENCIA')) {
         return 'Transferencias';
     }
     
-    if (desc.includes('FARMACIA') || desc.includes('HOSPITAL') || desc.includes('DOCTOR')) {
-        return 'Salud';
-    }
-    
-    if (desc.includes('CINE') || desc.includes('NETFLIX') || desc.includes('SPOTIFY') || desc.includes('GYM')) {
-        return 'Entretenimiento';
-    }
-    
-    if (desc.includes('LUZ') || desc.includes('AGUA') || desc.includes('TELEFONO') || desc.includes('INTERNET')) {
+    // Servicios
+    if (desc.includes('PENSION') || desc.includes('RENTA') || desc.includes('DONATIVO')) {
         return 'Servicios';
     }
     
-    if (desc.includes('TIENDA') || desc.includes('AMAZON') || desc.includes('LIVERPOOL')) {
+    // Salud
+    if (desc.includes('FARMACIA') || desc.includes('FAR GUAD')) {
+        return 'Salud';
+    }
+    
+    // Compras
+    if (desc.includes('ROPA') || desc.includes('TIENDA') || desc.includes('COMPRA')) {
         return 'Compras';
+    }
+    
+    // Entretenimiento
+    if (desc.includes('CINE') || desc.includes('JUEGO') || desc.includes('DIVERSIO')) {
+        return 'Entretenimiento';
     }
     
     return 'Otros';
