@@ -622,39 +622,67 @@ showLearningModal();
             }
         }
         // Bank-specific PDF processors
-      // REEMPLAZA TODA LA FUNCIÓN processBBVAPDF CON ESTA:
-
-// VERSIÓN SIMPLIFICADA TEMPORAL PARA PROBAR SISTEMA DE APRENDIZAJE
+      // PROCESADOR BBVA RESTAURADO - VERSIÓN QUE FUNCIONABA
 async function processBBVAPDF(text) {
     console.log('=== PROCESADOR BBVA v2 ===');
-    console.log('🔍 DEBUG: Iniciando procesamiento...');
     transactionData.length = 0;
     
-    // Procesamiento simplificado - buscar transacciones directamente
-    const lines = text.split('\n');
+    // Dividir el texto en bloques por líneas
+    const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
     
-    for (const line of lines) {
-        // Buscar patrones básicos de transacciones
-        if (line.includes('SPEI') || line.includes('DEPOSITO') || line.includes('RETIRO')) {
-            // Buscar montos
-            const amountMatch = line.match(/([\d,]+\.\d{2})/);
-            if (amountMatch) {
-                const amount = parseFloat(amountMatch[0].replace(/,/g, ''));
-                if (amount > 0 && amount < 50000) {
-                    const transaction = {
-                        description: line.substring(0, 50).trim(),
-                        amount: amount,
-                        date: new Date(),
-                        category: categorizeTransaction(line)
-                    };
-                    transactionData.push(transaction);
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        
+        // Buscar líneas que contengan patrones de transacciones BBVA
+        // Basado en el debug real: fechas en formato DD/MMM
+        const dateMatch = line.match(/(\d{1,2}\/[A-Z]{3})/);
+        
+        if (dateMatch) {
+            // Extraer todos los números posibles (montos)
+            const numberMatches = line.match(/([\d,]+\.\d{2})/g);
+            
+            if (numberMatches && numberMatches.length > 0) {
+                // El último número suele ser el saldo, el anterior el monto
+                let transactionAmount = null;
+                
+                if (numberMatches.length >= 2) {
+                    // Si hay múltiples números, el penúltimo suele ser el monto de la transacción
+                    transactionAmount = numberMatches[numberMatches.length - 2];
+                } else {
+                    // Si solo hay uno, usarlo como monto
+                    transactionAmount = numberMatches[0];
+                }
+                
+                if (transactionAmount) {
+                    const amount = parseFloat(transactionAmount.replace(/,/g, ''));
+                    
+                    // Extraer descripción limpiando la línea
+                    let description = line;
+                    description = description.replace(dateMatch[0], ''); // Quitar fecha
+                    description = description.replace(new RegExp(transactionAmount.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), ''); // Quitar monto
+                    
+                    // Limpiar números adicionales (saldos, referencias)
+                    description = description.replace(/([\d,]+\.\d{2})/g, '');
+                    description = description.replace(/\s+/g, ' ').trim();
+                    
+                    // Filtrar descripciones muy cortas o que sean solo números/espacios
+                    if (description.length > 5 && amount > 0 && !/^[\d\s\.]+$/.test(description)) {
+                        const transaction = {
+                            description: description,
+                            amount: amount,
+                            date: parseBBVADate(dateMatch[0]),
+                            category: categorizeTransaction(description)
+                        };
+                        
+                        transactionData.push(transaction);
+                    }
                 }
             }
         }
     }
     
-    console.log(`🔍 DEBUG: Procesadas ${transactionData.length} transacciones`);
-}    
+    console.log(`BBVA: Procesadas ${transactionData.length} transacciones`);
+}
         async function processNuPDF(text) {
             const lines = text.split('\n');
             transactionData = [];
