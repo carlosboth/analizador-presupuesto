@@ -1127,32 +1127,34 @@
             document.getElementById('fileInput').click();
         }
 
-        // INICIAR FLUJO DE PROCESAMIENTO
-        async function startProcessingFlow() {
-            const pendingFiles = fileQueue.filter(f => f.status === 'pending');
-            
-            if (pendingFiles.length === 0) {
-                showNotification('No hay archivos para procesar', 'warning');
-                return;
-            }
-
-            // Limpiar transacciones previas
-            transactionData.length = 0;
-            allConsolidatedTransactions.length = 0;
-
-            // Procesar todos los archivos
-            for (const file of pendingFiles) {
-                await processMultipleFile(file);
-            }
-
-            // Guardar datos procesados
-            processedFilesData = fileQueue.filter(f => f.status === 'completed');
-            
-            // Consolidar transacciones de todos los archivos
-            processedFilesData.forEach(file => {
-                allConsolidatedTransactions.push(...file.transactions);
-            });
-
+       async function startProcessingFlow() {
+    const pendingFiles = fileQueue.filter(f => f.status === 'pending');
+    
+    if (pendingFiles.length === 0) {
+        showNotification('No hay archivos para procesar', 'warning');
+        return;
+    }
+    
+    // IMPORTANTE: NO borrar transactionData aquí para mantener datos previos
+    // Solo limpiar las variables de consolidación
+    allConsolidatedTransactions.length = 0;
+    
+    // Procesar todos los archivos
+    for (const file of pendingFiles) {
+        await processMultipleFile(file);
+    }
+    
+    // Guardar datos procesados
+    processedFilesData = fileQueue.filter(f => f.status === 'completed');
+    
+    // Consolidar transacciones de todos los archivos
+    processedFilesData.forEach(file => {
+        allConsolidatedTransactions.push(...file.transactions);
+    });
+    
+    // Pasar al paso 2: Gastos manuales
+    showManualExpensesStep();
+}
             // Pasar al paso 2: Gastos manuales
             showManualExpensesStep();
         }
