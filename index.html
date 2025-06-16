@@ -622,183 +622,205 @@ showLearningModal();
             }
         }
         // Bank-specific PDF processors
-     // PROCESADOR BBVA CON DETECCIÓN DE COLUMNAS CARGO/ABONO
+     // PROCESADOR BBVA ESPECÍFICO - BASADO EN PDF REAL
 async function processBBVAPDF(text) {
-    console.log('=== PROCESADOR BBVA CON COLUMNAS ===');
+    console.log('=== PROCESADOR BBVA ESPECÍFICO v3 ===');
     transactionData.length = 0;
     
     // Dividir el texto en líneas
     const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
     console.log(`Total de líneas: ${lines.length}`);
     
-    // PASO 1: Detectar la línea de encabezados (CARGO/ABONO)
-    let headerLine = -1;
-    let cargoColumn = -1;
-    let abonoColumn = -1;
+    let processedCount = 0;
+    let startProcessing = false;
     
     for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].toUpperCase();
-        if (line.includes('CARGO') && line.includes('ABONO')) {
-            headerLine = i;
-            // Detectar posiciones aproximadas de las columnas
-            cargoColumn = line.indexOf('CARGO');
-            abonoColumn = line.indexOf('ABONO');
-            console.log(`Encabezados encontrados en línea ${i+1}: CARGO en posición ${cargoColumn}, ABONO en posición ${abonoColumn}`);
-            break;
-        }
-    }
-    
-    if (headerLine === -1) {
-        console.log('No se encontraron columnas CARGO/ABONO, usando método alternativo...');
-        return processBBVAAlternative(text);
-    }
-    
-    let processedCount = 0;
-    
-    // PASO 2: Procesar transacciones usando posiciones de columnas
-    for (let i = headerLine + 1; i < lines.length; i++) {
         const line = lines[i];
         
-        // Buscar líneas con fechas (transacciones)
+        // Buscar inicio de la sección "Detalle de Movimientos Realizados"
+        if (line.includes('Detalle de Movimientos Realizados')) {
+            startProcessing = true;
+            console.log('Iniciando procesamiento de movimientos...');
+            continue;
+        }
+        
+        // Parar si llegamos al final de los movimientos
+        if (line.includes('Total de Movimientos') || line.includes('TOTAL IMPORTE')) {
+            console.log('Fin de movimientos detectado');
+            break;
+        }
+        
+        if (!startProcessing) continue;
+        
+        // Buscar líneas que contengan fechas en formato DD/OCT o DD/NOV
         const dateMatch = line.match(/(\d{1,2}\/[A-Z]{3})/);
         
         if (dateMatch) {
-            console.log(`Procesando línea ${i+1}: ${line}`);
+            console.log(`Procesando línea: ${line.substring(0, 100)}...`);
             
-            // Extraer descripción (parte inicial de la línea)
-            let description = line.replace(dateMatch[0], '').trim();
+            // NUEVO ENFOQUE: Buscar patrones específicos de BBVA
             
-            // Buscar montos en la línea
-            const amounts = line.match(/([\d,]+\.\d{2})/g);
+            // 1. Extraer la descripción (después de las fechas)
+            let description = line;
             
-            if (amounts && amounts.length > 0) {
-                // DETECTAR SI ES CARGO O ABONO basado en posición
-                let transactionType = 'Otros';
-                let amount = 0;
+            // Quitar las fechas del inicio
+            const dateMatches = line.match(/\d{1,2}\/[A-Z]{3}/g);
+            if (dateMatches) {
+                dateMatches.forEach(date => {
+                    description = description.replace(date, '');
+                });
+            }
+            
+            // 2. Buscar montos en la línea (números con formato X,XXX.XX)
+            const amountMatches = line.match(/([\d,]+\.\d{2})/g);
+            
+            if (amountMatches && amountMatches.length > 0) {
+                // 3. Determinar si es ingreso o gasto por las palabras clave de BBVA
+                let isIncome = false;
                 
-                for (const amountStr of amounts) {
-                    const amountPos = line.indexOf(amountStr);
-                    const numAmount = parseFloat(amountStr.replace(/,/g, ''));
-                    
-                    // Determinar si está en columna CARGO o ABONO
-                    if (cargoColumn !== -1 && abonoColumn !== -1) {
-                        const distanceToCargo = Math.abs(amountPos - cargoColumn);
-                        const distanceToAbono = Math.abs(amountPos - abonoColumn);
-                        
-                        if (distanceToCargo < distanceToAbono) {
-                            // Está más cerca de la columna CARGO = GASTO
-                            transactionType = 'GASTO';
-                            amount = numAmount;
-                            console.log(`-> GASTO: $${numAmount} (posición ${amountPos}, cerca de CARGO)`);
-                        } else {
-                            // Está más cerca de la columna ABONO = INGRESO
-                            transactionType = 'INGRESO';
-                            amount = numAmount;
-                            console.log(`-> INGRESO: $${numAmount} (posición ${amountPos}, cerca de ABONO)`);
+                // Palabras que indican INGRESO en BBVA
+                const incomeKeywords = [
+                    'SPEI RECIBIDO', 'DEPOSITO', 'ABONO', 'TRANSFERENCIA RECIBIDA',
+                    'PAGO DE NOMINA', 'DEVOLUCION', 'VENTA FONDOS', 'DEPOSITO DE INVERSION'
+                ];
+                
+                // Palabras que indican GASTO en BBVA
+                const expenseKeywords = [
+                    'SPEI ENVIADO', 'RETIRO', 'PAGO CUENTA DE TERCERO', 'CAJERO AUTOMATICO',
+                    'DISPOSICION', 'CARGO', 'COMISION'
+                ];
+                
+                const upperLine = line.toUpperCase();
+                
+                // Verificar si es ingreso
+                for (const keyword of incomeKeywords) {
+                    if (upperLine.includes(keyword)) {
+                        isIncome = true;
+                        break;
+                    }
+                }
+                
+                // Si no es ingreso, verificar si es gasto explícito
+                let isExpense = false;
+                if (!isIncome) {
+                    for (const keyword of expenseKeywords) {
+                        if (upperLine.includes(keyword)) {
+                            isExpense = true;
+                            break;
                         }
                     }
                 }
                 
-                // Limpiar descripción
-                amounts.forEach(amt => {
-                    description = description.replace(amt, '');
-                });
-                description = description.replace(/\s+/g, ' ').trim();
-                
-                if (description.length > 3 && amount > 0) {
-                    // Categorizar basado en tipo y descripción
-                    let category;
-                    if (transactionType === 'INGRESO') {
-                        category = 'Ingresos';
-                    } else {
-                        // Es gasto, categorizar por descripción
-                        category = categorizeExpense(description);
-                    }
+                // 4. Procesar cada monto encontrado
+                for (const amountStr of amountMatches) {
+                    const amount = parseFloat(amountStr.replace(/,/g, ''));
                     
-                    const transaction = {
-                        description: description,
-                        amount: amount,
-                        date: parseBBVADate(dateMatch[0]),
-                        category: category,
-                        type: transactionType // Agregar para debug
-                    };
-                    
-                    transactionData.push(transaction);
-                    processedCount++;
-                    
-                    if (processedCount <= 10) {
-                        console.log(`Transacción ${processedCount}: ${category} - ${description} - $${amount}`);
+                    if (amount > 0) {
+                        // Limpiar descripción
+                        let cleanDescription = description;
+                        
+                        // Quitar montos de la descripción
+                        amountMatches.forEach(amt => {
+                            cleanDescription = cleanDescription.replace(amt, '');
+                        });
+                        
+                        // Limpiar espacios y caracteres extras
+                        cleanDescription = cleanDescription.replace(/\s+/g, ' ').trim();
+                        
+                        // Filtrar descripciones muy cortas
+                        if (cleanDescription.length > 3) {
+                            let category;
+                            
+                            if (isIncome) {
+                                category = 'Ingresos';
+                            } else {
+                                // Categorizar gasto
+                                category = categorizeExpense(cleanDescription);
+                            }
+                            
+                            const transaction = {
+                                description: cleanDescription,
+                                amount: amount,
+                                date: parseBBVADate(dateMatch[0]),
+                                category: category,
+                                type: isIncome ? 'INGRESO' : 'GASTO',
+                                originalLine: line.substring(0, 50) + '...' // Para debug
+                            };
+                            
+                            transactionData.push(transaction);
+                            processedCount++;
+                            
+                            if (processedCount <= 10) {
+                                console.log(`Transacción ${processedCount}: ${category} - ${cleanDescription.substring(0, 30)} - $${amount}`);
+                            }
+                        }
                     }
                 }
             }
         }
     }
     
-    console.log(`BBVA Columnas: Procesadas ${transactionData.length} transacciones`);
+    console.log(`BBVA Específico: Procesadas ${transactionData.length} transacciones`);
     
-    // Estadísticas
-    const stats = {ingresos: 0, gastos: 0};
-    transactionData.forEach(t => {
-        if (t.category === 'Ingresos') stats.ingresos++;
-        else stats.gastos++;
-    });
-    console.log(`Estadísticas: ${stats.ingresos} ingresos, ${stats.gastos} gastos`);
-}
-
-// MÉTODO ALTERNATIVO si no encuentra columnas
-async function processBBVAAlternative(text) {
-    console.log('Usando método alternativo...');
-    // Buscar patrones específicos de BBVA
-    const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-    
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const dateMatch = line.match(/(\d{1,2}\/[A-Z]{3})/);
-        
-        if (dateMatch) {
-            // Heurística: si la línea contiene palabras de ingreso + monto, es ingreso
-            const isIncome = /(?:abono|deposito.*nomina|pago.*nomina|salario|sueldo|transferencia.*recibida)/i.test(line);
-            
-            const amounts = line.match(/([\d,]+\.\d{2})/g);
-            if (amounts && amounts.length > 0) {
-                const amount = parseFloat(amounts[0].replace(/,/g, ''));
-                let description = line.replace(dateMatch[0], '').replace(amounts[0], '').trim();
-                
-                const transaction = {
-                    description: description,
-                    amount: amount,
-                    date: parseBBVADate(dateMatch[0]),
-                    category: isIncome ? 'Ingresos' : categorizeExpense(description)
-                };
-                
-                transactionData.push(transaction);
-            }
-        }
-    }
-}
-
-// FUNCIÓN PARA CATEGORIZAR SOLO GASTOS
-function categorizeExpense(description) {
-    const desc = description.toLowerCase().trim();
-    
-    const expenseCategories = {
-        'Alimentación': ['supermercado', 'mercado', 'abarrotes', 'tienda', 'grocery', 'soriana', 'walmart', 'chedraui', 'oxxo', 'seven'],
-        'Restaurantes': ['restaurante', 'restaurant', 'comida', 'food', 'burger', 'pizza', 'taco', 'café', 'coffee', 'bar', 'mc donald', 'kfc', 'subway'],
-        'Transporte': ['gasolina', 'gas', 'uber', 'taxi', 'metro', 'autobus', 'bus', 'parking', 'estacionamiento', 'pemex', 'shell', 'bp'],
-        'Entretenimiento': ['cine', 'cinema', 'netflix', 'spotify', 'juego', 'game', 'teatro', 'concierto', 'club', 'gym', 'deporte'],
-        'Servicios': ['cfe', 'luz', 'telmex', 'telcel', 'att', 'movistar', 'internet', 'telefono', 'agua', 'servicio'],
-        'Salud': ['farmacia', 'hospital', 'doctor', 'medicina', 'dental', 'laboratorio', 'clinica', 'seguro'],
-        'Compras': ['amazon', 'mercadolibre', 'liverpool', 'palacio', 'sears', 'elektra', 'coppel', 'office depot'],
-        'Efectivo': ['cajero', 'atm', 'retiro', 'disposicion', 'efectivo'],
-        'Transferencias': ['spei enviado', 'transferencia', 'pago cuenta tercero', 'pago a tercero']
+    // Estadísticas detalladas
+    const stats = {
+        ingresos: { count: 0, total: 0 },
+        gastos: { count: 0, total: 0 }
     };
     
-    for (const [category, keywords] of Object.entries(expenseCategories)) {
-        for (const keyword of keywords) {
-            if (desc.includes(keyword)) {
-                return category;
-            }
+    transactionData.forEach(t => {
+        if (t.category === 'Ingresos') {
+            stats.ingresos.count++;
+            stats.ingresos.total += t.amount;
+        } else {
+            stats.gastos.count++;
+            stats.gastos.total += t.amount;
         }
+    });
+    
+    console.log(`Ingresos: ${stats.ingresos.count} transacciones, $${stats.ingresos.total.toLocaleString()}`);
+    console.log(`Gastos: ${stats.gastos.count} transacciones, $${stats.gastos.total.toLocaleString()}`);
+}
+
+// Función para categorizar gastos específica para BBVA
+function categorizeExpense(description) {
+    const desc = description.toUpperCase();
+    
+    // Categorías específicas para transacciones de BBVA
+    if (desc.includes('ABARROTES') || desc.includes('SUPERMERCADO') || desc.includes('MERCADO')) {
+        return 'Alimentación';
+    }
+    
+    if (desc.includes('RESTAURANT') || desc.includes('COMIDA') || desc.includes('PIZZA') || desc.includes('BURGER')) {
+        return 'Restaurantes';
+    }
+    
+    if (desc.includes('GASOLINA') || desc.includes('GAS') || desc.includes('UBER') || desc.includes('TAXI')) {
+        return 'Transporte';
+    }
+    
+    if (desc.includes('RETIRO') || desc.includes('CAJERO') || desc.includes('EFECTIVO')) {
+        return 'Efectivo';
+    }
+    
+    if (desc.includes('SPEI ENVIADO') || desc.includes('TRANSFERENCIA') || desc.includes('PAGO CUENTA')) {
+        return 'Transferencias';
+    }
+    
+    if (desc.includes('FARMACIA') || desc.includes('HOSPITAL') || desc.includes('DOCTOR')) {
+        return 'Salud';
+    }
+    
+    if (desc.includes('CINE') || desc.includes('NETFLIX') || desc.includes('SPOTIFY') || desc.includes('GYM')) {
+        return 'Entretenimiento';
+    }
+    
+    if (desc.includes('LUZ') || desc.includes('AGUA') || desc.includes('TELEFONO') || desc.includes('INTERNET')) {
+        return 'Servicios';
+    }
+    
+    if (desc.includes('TIENDA') || desc.includes('AMAZON') || desc.includes('LIVERPOOL')) {
+        return 'Compras';
     }
     
     return 'Otros';
