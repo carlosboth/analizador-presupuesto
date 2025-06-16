@@ -2323,11 +2323,11 @@ document.head.appendChild(style);
                 updateFilesDisplay();
                 
                 if (ext === 'pdf') {
-                    await processPDFForMultiple(file);
+                    await processMultiplePDF(file);
                 } else if (ext === 'xlsx' || ext === 'xls') {
-                    await processExcelForMultiple(file);
+                    await processMultipleExcel(file);
                 } else if (ext === 'csv') {
-                    await processCSVForMultiple(file);
+                    await processMultipleCSV(file);
                 }
                 
                 fileItem.progress = 100;
@@ -2342,7 +2342,7 @@ document.head.appendChild(style);
         }
 
         // Procesadores específicos para múltiples archivos
-        async function processPDFForMultiple(file) {
+        async function processMultiplePDF(file) {
             const arrayBuffer = await file.arrayBuffer();
             const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
             
@@ -2361,7 +2361,7 @@ document.head.appendChild(style);
             }
         }
 
-        async function processExcelForMultiple(file) {
+        async function processMultipleExcel(file) {
             const data = await file.arrayBuffer();
             const workbook = XLSX.read(data, { type: 'array' });
             const sheetName = workbook.SheetNames[0];
@@ -2380,7 +2380,7 @@ document.head.appendChild(style);
             }
         }
 
-        async function processCSVForMultiple(file) {
+        async function processMultipleCSV(file) {
             const text = await file.text();
             const lines = text.split('\n');
             const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
