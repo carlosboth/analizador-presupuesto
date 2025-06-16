@@ -500,6 +500,112 @@
                 font-size: 2rem;
             }
         }
+        /* ESTILOS PARA MÚLTIPLES ARCHIVOS */
+        .multiple-files-section {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            margin: 20px 0;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .multiple-files-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .multiple-files-header h2 {
+            color: #667eea;
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+        }
+
+        .file-drop-zone {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 40px 20px;
+            text-align: center;
+            background: linear-gradient(45deg, #f8f9ff, #e8f0ff);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            margin-bottom: 25px;
+        }
+
+        .file-drop-zone:hover {
+            border-color: #5a67d8;
+            background: linear-gradient(45deg, #f0f4ff, #dde7ff);
+            transform: translateY(-2px);
+        }
+
+        .file-drop-zone.dragover {
+            border-color: #4c51bf;
+            background: linear-gradient(45deg, #e6f3ff, #cce7ff);
+            transform: scale(1.02);
+        }
+
+        .file-input-multiple {
+            display: none;
+        }
+
+        .select-files-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 25px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .files-queue {
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            margin-bottom: 25px;
+        }
+
+        .queue-header {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 20px;
+            font-weight: bold;
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr 0.5fr;
+            gap: 15px;
+        }
+
+        .file-item {
+            padding: 15px 20px;
+            border-bottom: 1px solid #eee;
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr 0.5fr;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .file-progress {
+            width: 100%;
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #4facfe, #00f2fe);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .status-pending { background: #fef5e7; color: #dd6b20; }
+        .status-processing { background: #ebf8ff; color: #3182ce; }
+        .status-completed { background: #e6fffa; color: #38b2ac; }
+        .status-error { background: #fed7d7; color: #e53e3e; }
     </style>
 </head>
 <body>
@@ -615,6 +721,54 @@
             <button onclick="showManualExpenses()" class="show-manual-btn">
                 💵 Agregar Gastos en Efectivo
             </button>
+
+            <!-- BOTÓN PARA MÚLTIPLES ARCHIVOS -->
+            <button onclick="showMultipleFiles()" class="show-manual-btn" style="background: linear-gradient(135deg, #667eea, #764ba2);">
+                📁 Procesar Múltiples Estados de Cuenta
+            </button>
+
+            <!-- SECCIÓN DE MÚLTIPLES ARCHIVOS -->
+            <div class="multiple-files-section" id="multipleFilesSection" style="display: none;">
+                <div class="multiple-files-header">
+                    <h2>📁 Múltiples Estados de Cuenta</h2>
+                    <p>Sube estados de cuenta de diferentes bancos para un análisis consolidado</p>
+                </div>
+
+                <!-- Zona de arrastre -->
+                <div class="file-drop-zone" id="fileDropZone">
+                    <div style="font-size: 3rem; margin-bottom: 15px; color: #667eea;">📊</div>
+                    <div style="font-size: 1.2rem; font-weight: 600; color: #4a5568; margin-bottom: 10px;">
+                        Arrastra múltiples archivos aquí
+                    </div>
+                    <div style="color: #718096; font-size: 0.9rem; margin-bottom: 20px;">
+                        O haz clic para seleccionar varios estados de cuenta
+                    </div>
+                    <button class="select-files-btn" onclick="document.getElementById('fileInputMultiple').click()">
+                        📁 Seleccionar Archivos
+                    </button>
+                    <input type="file" id="fileInputMultiple" class="file-input-multiple" 
+                           accept=".xlsx,.xls,.csv,.pdf" multiple>
+                </div>
+
+                <!-- Cola de archivos -->
+                <div class="files-queue" id="filesQueue" style="display: none;">
+                    <div class="queue-header">
+                        <div>Archivo</div>
+                        <div>Tamaño</div>
+                        <div>Estado</div>
+                        <div>Progreso</div>
+                        <div>Acción</div>
+                    </div>
+                    <div id="filesQueueList">
+                        <!-- Archivos se agregan dinámicamente -->
+                    </div>
+                </div>
+
+                <!-- Botón procesar -->
+                <button id="processAllBtn" class="process-all-btn" disabled onclick="processAllFiles()">
+                    ⚡ Sin archivos para procesar
+                </button>
+            </div>
 
             <!-- SECCIÓN DE GASTOS MANUALES -->
             <div class="manual-expenses-section" id="manualExpensesSection" style="display: none;">
@@ -1971,6 +2125,275 @@ document.head.appendChild(style);
                     document.body.removeChild(notification);
                 }, 300);
             }, 3000);
+        }
+        // SISTEMA DE MÚLTIPLES ARCHIVOS
+        let fileQueue = [];
+        let nextFileId = 1;
+
+        // Función para mostrar múltiples archivos
+        function showMultipleFiles() {
+            const section = document.getElementById('multipleFilesSection');
+            if (section) {
+                section.style.display = 'block';
+                initMultipleFiles();
+                section.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        // Inicializar sistema
+        function initMultipleFiles() {
+            const fileInput = document.getElementById('fileInputMultiple');
+            const dropZone = document.getElementById('fileDropZone');
+
+            // Drag & Drop
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
+            });
+
+            dropZone.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+                const files = Array.from(e.dataTransfer.files);
+                addFilesToQueue(files);
+            });
+
+            // Selección de archivos
+            fileInput.addEventListener('change', (e) => {
+                const files = Array.from(e.target.files);
+                addFilesToQueue(files);
+            });
+        }
+
+        // Agregar archivos a la cola
+        function addFilesToQueue(files) {
+            const validExtensions = ['pdf', 'xlsx', 'xls', 'csv'];
+            
+            files.forEach(file => {
+                const extension = file.name.split('.').pop().toLowerCase();
+                
+                if (validExtensions.includes(extension)) {
+                    const fileItem = {
+                        id: nextFileId++,
+                        file: file,
+                        name: file.name,
+                        size: formatFileSize(file.size),
+                        status: 'pending',
+                        progress: 0,
+                        bank: detectBank(file.name)
+                    };
+                    
+                    fileQueue.push(fileItem);
+                } else {
+                    alert(`Archivo ${file.name} no válido. Solo PDF, Excel y CSV.`);
+                }
+            });
+
+            updateFilesDisplay();
+        }
+
+        // Detectar banco
+        function detectBank(fileName) {
+            const name = fileName.toLowerCase();
+            
+            if (name.includes('bbva')) return { name: 'BBVA', logo: '🏦' };
+            if (name.includes('santander')) return { name: 'Santander', logo: '🔴' };
+            if (name.includes('banorte')) return { name: 'Banorte', logo: '🟠' };
+            if (name.includes('nu')) return { name: 'Nu', logo: '💜' };
+            
+            return { name: 'Otro Banco', logo: '🏛️' };
+        }
+
+        // Formatear tamaño
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Actualizar visualización
+        function updateFilesDisplay() {
+            const queue = document.getElementById('filesQueue');
+            const queueList = document.getElementById('filesQueueList');
+            const processBtn = document.getElementById('processAllBtn');
+
+            if (fileQueue.length === 0) {
+                queue.style.display = 'none';
+                processBtn.disabled = true;
+                processBtn.textContent = '⚡ Sin archivos para procesar';
+                return;
+            }
+
+            queue.style.display = 'block';
+            
+            queueList.innerHTML = fileQueue.map(file => `
+                <div class="file-item">
+                    <div style="font-weight: 600; display: flex; align-items: center; gap: 10px;">
+                        <span>${getFileIcon(file.name)}</span>
+                        <div>
+                            <div>${file.name}</div>
+                            <div style="font-size: 0.8rem; color: #718096;">
+                                ${file.bank.logo} ${file.bank.name}
+                            </div>
+                        </div>
+                    </div>
+                    <div>${file.size}</div>
+                    <div class="file-status status-${file.status}" style="padding: 5px 12px; border-radius: 15px; font-size: 0.8rem; text-align: center;">
+                        ${getStatusText(file.status)}
+                    </div>
+                    <div class="file-progress">
+                        <div class="progress-bar" style="width: ${file.progress}%"></div>
+                    </div>
+                    <button onclick="removeFile(${file.id})" style="background: #fed7d7; color: #e53e3e; border: none; padding: 5px 10px; border-radius: 50%; cursor: pointer;">×</button>
+                </div>
+            `).join('');
+
+            // Actualizar botón
+            const pendingFiles = fileQueue.filter(f => f.status === 'pending').length;
+            processBtn.disabled = pendingFiles === 0;
+            processBtn.textContent = pendingFiles > 0 ? 
+                `⚡ Procesar ${pendingFiles} Archivo${pendingFiles > 1 ? 's' : ''}` : 
+                '⚡ Sin archivos para procesar';
+        }
+
+        // Funciones auxiliares
+        function getFileIcon(fileName) {
+            const ext = fileName.split('.').pop().toLowerCase();
+            const icons = { 'pdf': '📄', 'xlsx': '📊', 'xls': '📊', 'csv': '📋' };
+            return icons[ext] || '📄';
+        }
+
+        function getStatusText(status) {
+            const texts = {
+                'pending': 'Pendiente',
+                'processing': 'Procesando',
+                'completed': 'Completado',
+                'error': 'Error'
+            };
+            return texts[status] || 'Desconocido';
+        }
+
+        function removeFile(fileId) {
+            fileQueue = fileQueue.filter(file => file.id !== fileId);
+            updateFilesDisplay();
+        }
+
+        // Procesar todos los archivos
+        async function processAllFiles() {
+            const pendingFiles = fileQueue.filter(f => f.status === 'pending');
+            
+            if (pendingFiles.length === 0) {
+                alert('No hay archivos para procesar');
+                return;
+            }
+
+            // Limpiar transacciones anteriores
+            transactionData.length = 0;
+            
+            for (const file of pendingFiles) {
+                await processFile(file);
+            }
+            
+            // Recalcular análisis
+            if (typeof analyzeData === 'function') {
+                analyzeData();
+            }
+            
+            showSuccessMessage(`Procesados ${pendingFiles.length} archivos correctamente`);
+        }
+
+        // Procesar archivo individual
+        async function processFile(fileItem) {
+            fileItem.status = 'processing';
+            fileItem.progress = 0;
+            updateFilesDisplay();
+
+            try {
+                const file = fileItem.file;
+                const ext = file.name.split('.').pop().toLowerCase();
+                
+                fileItem.progress = 25;
+                updateFilesDisplay();
+                
+                if (ext === 'pdf') {
+                    await processPDFForMultiple(file);
+                } else if (ext === 'xlsx' || ext === 'xls') {
+                    await processExcelForMultiple(file);
+                } else if (ext === 'csv') {
+                    await processCSVForMultiple(file);
+                }
+                
+                fileItem.progress = 100;
+                fileItem.status = 'completed';
+                
+            } catch (error) {
+                fileItem.status = 'error';
+                console.error('Error:', error);
+            }
+            
+            updateFilesDisplay();
+        }
+
+        // Procesadores específicos para múltiples archivos
+        async function processPDFForMultiple(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+            
+            let fullText = '';
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                fullText += textContent.items.map(item => item.str).join(' ') + '\n';
+            }
+            
+            // Usar procesador existente
+            if (fullText.includes('BBVA')) {
+                await processBBVAPDF(fullText);
+            } else {
+                await processGenericPDF(fullText);
+            }
+        }
+
+        async function processExcelForMultiple(file) {
+            const data = await file.arrayBuffer();
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            
+            const headers = jsonData[0].map(h => String(h).trim().toLowerCase());
+            
+            for (let i = 1; i < jsonData.length; i++) {
+                if (jsonData[i].length > 0) {
+                    const transaction = parseTransaction(headers, jsonData[i]);
+                    if (transaction) {
+                        transactionData.push(transaction);
+                    }
+                }
+            }
+        }
+
+        async function processCSVForMultiple(file) {
+            const text = await file.text();
+            const lines = text.split('\n');
+            const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+            
+            for (let i = 1; i < lines.length; i++) {
+                if (lines[i].trim()) {
+                    const values = lines[i].split(',');
+                    const transaction = parseTransaction(headers, values);
+                    if (transaction) {
+                        transactionData.push(transaction);
+                    }
+                }
+            }
         }
 </script>
     <!-- MODAL DE APRENDIZAJE -->
