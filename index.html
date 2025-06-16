@@ -2298,7 +2298,7 @@ document.head.appendChild(style);
             transactionData.length = 0;
             
             for (const file of pendingFiles) {
-                await processFile(file);
+                await processMultipleFile(file);
             }
             
             // Recalcular análisis
@@ -2310,7 +2310,7 @@ document.head.appendChild(style);
         }
 
         // Procesar archivo individual
-        async function processFile(fileItem) {
+        async function processMultipleFile(fileItem) {
             fileItem.status = 'processing';
             fileItem.progress = 0;
             updateFilesDisplay();
