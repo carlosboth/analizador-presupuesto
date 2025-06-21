@@ -5,17 +5,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MoneyVault - Analizador de Presupuesto Personal</title>
     
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>">
+    
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <!-- Scripts -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.tailwindcss.com/3.3.0"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    
+    <!-- Tailwind Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
     
     <style>
         html, body {
@@ -136,6 +152,7 @@
             </div>
 
 <!-- CONTINÚA AQUÍ LA SECCIÓN 2: FORMULARIOS Y ESTADOS -->
+            
             <!-- File Selected Section -->
             <div id="fileSection" class="animate-fade-in-up delay-600 relative max-w-2xl mx-auto mb-12 hidden">
                 <div class="absolute -inset-4 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-3xl blur-lg animate-pulse-slow"></div>
@@ -989,7 +1006,6 @@
             return 'Otros';
         }
 
-        // CONTINÚA EN SECCIÓN 6: ANÁLISIS DE DATOS Y GRÁFICAS
         // Data analysis functions
         function analyzeData() {
             if (transactionData.length === 0) return;
