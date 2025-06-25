@@ -631,43 +631,428 @@
         }
 
         // File processing functions
-        async function processFile() {
-            if (!selectedFile) {
-                showNotification('No hay archivo seleccionado', 'error');
-                return;
-            }
+       // ===================
+// INTEGRACIÓN DEL SISTEMA MODULAR
+// Reemplaza tu función processFile() actual con esta versión
+// ===================
 
-            showSection('loadingSection');
+// Instancia global del consolidador
+let bankConsolidator = new BankConsolidator();
+
+// NUEVA función processFile() que reemplaza la anterior
+async function processFile() {
+    if (!selectedFile) {
+        showNotification('No hay archivo seleccionado', 'error');
+        return;
+    }
+
+    showSection('loadingSection');
+    
+    try {
+        console.log(`🔄 Iniciando procesamiento: ${selectedFile.name}`);
+        
+        // Procesar con el sistema modular
+        const result = await bankConsolidator.processFile(selectedFile.file);
+        
+        if (result.success && result.count > 0) {
+            // Obtener reporte consolidado
+            const report = bankConsolidator.getConsolidatedReport();
             
-            try {
-                const fileExtension = selectedFile.name.split('.').pop().toLowerCase();
-                
-                if (fileExtension === 'csv') {
-                    await processCSV(selectedFile.file);
-                } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
-                    await processExcel(selectedFile.file);
-                } else if (fileExtension === 'pdf') {
-                    await processPDF(selectedFile.file);
-                } else {
-                    throw new Error('Formato de archivo no soportado');
+            // Actualizar variable global para compatibilidad
+            transactionData = report.allTransactions;
+            
+            // Mostrar resultados mejorados
+            displayModularResults(report);
+            showSection('resultsSection');
+            
+            showNotification(
+                `✅ ${result.bankName}: ${result.count} transacciones procesadas`, 
+                'success'
+            );
+            
+            console.log('📊 Reporte consolidado:', report.summary);
+            
+        } else if (result.success && result.count === 0) {
+            throw new Error('No se encontraron transacciones válidas en el archivo');
+        } else {
+            throw new Error(result.error || 'Error desconocido al procesar el archivo');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error en processFile:', error);
+        document.getElementById('errorMessage').textContent = error.message;
+        showSection('errorSection');
+        showNotification('Error al procesar el archivo', 'error');
+    }
+}
+
+// Nueva función para mostrar resultados con información de bancos
+function displayModularResults(report) {
+    const { summary, categoryTotals, bankStats, processedFiles } = report;
+    
+    // Actualizar tarjetas básicas
+    updateElement('totalIngresos', formatCurrency(summary.totalIngresos));
+    updateElement('totalExpenses', formatCurrency(summary.totalGastos));
+    updateElement('ahorroReal', formatCurrency(summary.ahorroReal));
+    updateElement('porcentajeAhorro', `${summary.porcentajeAhorro.toFixed(1)}%`);
+    
+    // Agregar información de bancos procesados
+    addBankSummarySection(summary, bankStats, processedFiles);
+    
+    // Crear gráficas estándar
+    createCategoryChart(categoryTotals);
+    createTrendChart();
+    createBudgetSuggestions(categoryTotals, summary.totalGastos, summary.totalIngresos);
+    
+    // Si hay múltiples bancos, mostrar comparación
+    if (Object.keys(bankStats).length > 1) {
+        createBankComparisonSection(bankStats);
+    }
+}
+
+// Agregar sección de resumen de bancos
+function addBankSummarySection(summary, bankStats, processedFiles) {
+    // Buscar si ya existe la sección
+    let bankSummary = document.getElementById('bankSummary');
+    
+    if (!bankSummary) {
+        // Crear nueva sección
+        bankSummary = document.createElement('div');
+        bankSummary.id = 'bankSummary';
+        bankSummary.className = 'glass-card rounded-2xl p-6 mb-8 animate-fade-in-up';
+        
+        // Insertar antes de las tarjetas de estadísticas
+        const statsGrid = document.querySelector('.stats-grid');
+        statsGrid.parentNode.insertBefore(bankSummary, statsGrid);
+    }
+    
+    // Generar lista de bancos
+    const bankList = Object.entries(bankStats).map(([bank, stats]) => 
+        `<span class="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-500/20 text-blue-300">
+            ${getBankIcon(bank)} ${bank}: ${stats.count} transacciones
+        </span>`
+    ).join('');
+    
+    bankSummary.innerHTML = `
+        <div class="text-center">
+            <h3 class="text-xl font-semibold mb-4 flex items-center justify-center gap-2">
+                <i data-lucide="building-2" class="w-5 h-5 text-blue-400"></i>
+                Resumen Multi-Banco
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-green-400">${summary.filesProcessed}</div>
+                    <div class="text-sm text-gray-400">Archivos Procesados</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-blue-400">${summary.banksProcessed}</div>
+                    <div class="text-sm text-gray-400">Bancos Detectados</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-purple-400">${summary.totalTransactions}</div>
+                    <div class="text-sm text-gray-400">Total Transacciones</div>
+                </div>
+            </div>
+            <div class="flex flex-wrap justify-center gap-2">
+                ${bankList}
+            </div>
+        </div>
+    `;
+    
+    // Actualizar íconos
+    lucide.createIcons();
+}
+
+// Función para obtener ícono del banco
+function getBankIcon(bankName) {
+    const icons = {
+        'BBVA': '🏦',
+        'Santander': '🔴',
+        'Nu': '💜',
+        'Banorte': '🟠',
+        'Banamex': '🔵',
+        'HSBC': '⚪',
+        'Genérico': '🏛️'
+    };
+    return icons[bankName] || '🏛️';
+}
+
+// Crear sección de comparación entre bancos
+function createBankComparisonSection(bankStats) {
+    let bankComparison = document.getElementById('bankComparison');
+    
+    if (!bankComparison) {
+        bankComparison = document.createElement('div');
+        bankComparison.id = 'bankComparison';
+        bankComparison.className = 'glass-card rounded-3xl p-8 mb-8 animate-fade-in-up';
+        
+        // Insertar después de las gráficas principales
+        const chartsContainer = document.querySelector('.charts-container');
+        chartsContainer.parentNode.insertBefore(bankComparison, chartsContainer.nextSibling);
+    }
+    
+    bankComparison.innerHTML = `
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-xl font-semibold">Comparación por Banco</h3>
+            <div class="flex items-center gap-2">
+                <i data-lucide="bar-chart-3" class="w-4 h-4 text-green-400"></i>
+                <span class="text-xs text-green-400">Multi-Banco</span>
+            </div>
+        </div>
+        <div class="relative h-80">
+            <canvas id="bankComparisonChart"></canvas>
+        </div>
+    `;
+    
+    // Crear gráfica de barras para comparar bancos
+    createBankChart(bankStats);
+    lucide.createIcons();
+}
+
+// Crear gráfica de comparación de bancos
+function createBankChart(bankStats) {
+    const ctx = document.getElementById('bankComparisonChart');
+    if (!ctx) return;
+    
+    const banks = Object.keys(bankStats);
+    const transactionCounts = banks.map(bank => bankStats[bank].count);
+    const totalAmounts = banks.map(bank => bankStats[bank].totalAmount);
+    
+    const colors = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
+    
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: banks.map(bank => `${getBankIcon(bank)} ${bank}`),
+            datasets: [
+                {
+                    label: 'Número de Transacciones',
+                    data: transactionCounts,
+                    backgroundColor: colors.slice(0, banks.length).map(color => color + '80'),
+                    borderColor: colors.slice(0, banks.length),
+                    borderWidth: 2,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Monto Total',
+                    data: totalAmounts,
+                    backgroundColor: colors.slice(0, banks.length).map(color => color + '40'),
+                    borderColor: colors.slice(0, banks.length),
+                    borderWidth: 2,
+                    type: 'line',
+                    yAxisID: 'y1'
                 }
-                
-                if (transactionData.length === 0) {
-                    throw new Error('No se encontraron transacciones válidas en el archivo');
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    labels: {
+                        color: '#ffffff',
+                        font: { size: 12 }
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleColor: '#ffffff',
+                    bodyColor: '#ffffff',
+                    borderColor: '#ffffff',
+                    borderWidth: 1,
+                    callbacks: {
+                        label: function(context) {
+                            if (context.dataset.label === 'Monto Total') {
+                                return `${context.dataset.label}: ${formatCurrency(context.parsed.y)}`;
+                            }
+                            return `${context.dataset.label}: ${context.parsed.y}`;
+                        }
+                    }
                 }
-                
-                analyzeData();
-                showSection('resultsSection');
-                showNotification(`Análisis completado: ${transactionData.length} transacciones procesadas`, 'success');
-                
-            } catch (error) {
-                console.error('Error procesando archivo:', error);
-                document.getElementById('errorMessage').textContent = error.message;
-                showSection('errorSection');
-                showNotification('Error al procesar el archivo', 'error');
+            },
+            scales: {
+                x: {
+                    grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                    ticks: { color: '#9ca3af' }
+                },
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                    ticks: { 
+                        color: '#9ca3af',
+                        callback: function(value) {
+                            return value + ' transacciones';
+                        }
+                    }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    grid: { drawOnChartArea: false },
+                    ticks: { 
+                        color: '#9ca3af',
+                        callback: function(value) {
+                            return formatCurrency(value);
+                        }
+                    }
+                }
             }
         }
+    });
+}
 
+// Función mejorada para múltiples archivos
+async function processMultipleFiles(files) {
+    showSection('loadingSection');
+    let successCount = 0;
+    let totalTransactions = 0;
+    
+    try {
+        console.log(`📁 Procesando ${files.length} archivos...`);
+        
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            console.log(`📄 [${i + 1}/${files.length}] Procesando: ${file.name}`);
+            
+            const result = await bankConsolidator.processFile(file);
+            
+            if (result.success) {
+                successCount++;
+                totalTransactions += result.count;
+                showNotification(
+                    `✅ ${result.bankName}: ${result.count} transacciones (${i + 1}/${files.length})`, 
+                    'success'
+                );
+            } else {
+                console.warn(`⚠️ Error en ${file.name}:`, result.error);
+                showNotification(`⚠️ Error en ${file.name}`, 'warning');
+            }
+        }
+        
+        if (successCount > 0) {
+            const report = bankConsolidator.getConsolidatedReport();
+            transactionData = report.allTransactions;
+            
+            displayModularResults(report);
+            showSection('resultsSection');
+            
+            showNotification(
+                `🎉 Procesamiento completado: ${successCount}/${files.length} archivos, ${totalTransactions} transacciones`, 
+                'success'
+            );
+        } else {
+            throw new Error('No se pudo procesar ningún archivo correctamente');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error en procesamiento múltiple:', error);
+        document.getElementById('errorMessage').textContent = error.message;
+        showSection('errorSection');
+        showNotification('Error al procesar los archivos', 'error');
+    }
+}
+
+// Función para resetear el consolidador
+function resetBankConsolidator() {
+    bankConsolidator.reset();
+    transactionData = [];
+    
+    // Limpiar secciones adicionales
+    const bankSummary = document.getElementById('bankSummary');
+    const bankComparison = document.getElementById('bankComparison');
+    
+    if (bankSummary) bankSummary.remove();
+    if (bankComparison) bankComparison.remove();
+    
+    console.log('🔄 Consolidador reiniciado');
+}
+
+// Modificar resetToUpload para usar el nuevo sistema
+function resetToUpload() {
+    // Resetear consolidador
+    resetBankConsolidator();
+    
+    // Limpiar archivo seleccionado
+    selectedFile = null;
+    
+    // Destruir gráficas existentes
+    if (categoryChart) {
+        categoryChart.destroy();
+        categoryChart = null;
+    }
+    if (trendChart) {
+        trendChart.destroy();
+        trendChart = null;
+    }
+    
+    // Resetear input de archivo
+    document.getElementById('fileInput').value = '';
+    
+    // Mostrar sección de upload
+    showSection('uploadSection');
+    showNotification('Listo para analizar nuevos archivos', 'success');
+}
+
+// Función de exportación mejorada
+function exportResults() {
+    if (transactionData.length === 0) {
+        showNotification('No hay datos para exportar', 'warning');
+        return;
+    }
+    
+    const report = bankConsolidator.getConsolidatedReport();
+    
+    const exportData = {
+        fecha_analisis: new Date().toISOString(),
+        resumen: report.summary,
+        bancos_procesados: report.bankStats,
+        archivos_procesados: report.processedFiles,
+        categorias: report.categoryTotals,
+        transacciones: report.allTransactions.map(t => ({
+            id: t.id,
+            fecha: t.date.toISOString().split('T')[0],
+            descripcion: t.description,
+            monto: t.amount,
+            categoria: t.category,
+            tipo: t.type,
+            banco: t.source
+        }))
+    };
+    
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { 
+        type: 'application/json' 
+    });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `analisis-consolidado-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    showNotification('Reporte consolidado exportado correctamente', 'success');
+}
+
+// Funciones de debug mejoradas
+window.debugApp = {
+    showTransactionData: () => console.table(transactionData),
+    showBankStats: () => console.log(bankConsolidator.bankStats),
+    showReport: () => console.log(bankConsolidator.getConsolidatedReport()),
+    testNotification: (type) => showNotification(`Test ${type} notification`, type),
+    resetApp: resetToUpload,
+    processTestFile: async (fileName) => {
+        // Función para testing
+        console.log(`🧪 Testing processor for: ${fileName}`);
+    }
+};
+
+console.log('🔧 Sistema modular integrado correctamente');
+console.log('💡 Usa window.debugApp.showReport() para ver el reporte completo');
         // CSV Processing
         async function processCSV(file) {
             const text = await file.text();
@@ -1362,6 +1747,660 @@
 
         console.log('💰 MoneyVault inicializado correctamente');
         console.log('Usa window.debugApp para funciones de depuración');
+        // ===================
+// SISTEMA MODULAR DE PROCESADORES POR BANCO
+// ===================
+
+// Clase base para transacciones estandarizadas
+class Transaction {
+    constructor(description, amount, date, category = 'Otros', type = 'GASTO', source = 'Desconocido') {
+        this.description = description.trim();
+        this.amount = Math.abs(parseFloat(amount));
+        this.date = new Date(date);
+        this.category = category;
+        this.type = type;
+        this.source = source;
+        this.id = `${source}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    }
+}
+
+// ===================
+// PROCESADOR BBVA
+// ===================
+class BBVAProcessor {
+    static bankName = 'BBVA';
+    
+    static async processPDF(text) {
+        console.log('🏦 Procesando BBVA PDF...');
+        const transactions = [];
+        const lines = text.split('\n');
+
+        for (let line of lines) {
+            line = line.trim();
+            if (line.length < 15) continue;
+
+            // Patrón BBVA: DD/MM/YYYY DESCRIPCION $MONTO
+            const pattern = /(\d{1,2}\/\d{1,2}\/\d{4})\s+(.+?)\s+\$?([\d,]+\.?\d*)/;
+            const match = line.match(pattern);
+
+            if (match) {
+                const [_, dateStr, description, amountStr] = match;
+                const amount = parseFloat(amountStr.replace(/,/g, ''));
+
+                if (!isNaN(amount) && amount > 0 && description.length > 3) {
+                    const transaction = new Transaction(
+                        description,
+                        amount,
+                        this.parseDate(dateStr),
+                        this.categorize(description),
+                        this.isIncome(description) ? 'INGRESO' : 'GASTO',
+                        this.bankName
+                    );
+                    transactions.push(transaction);
+                }
+            }
+        }
+
+        console.log(`✅ BBVA: ${transactions.length} transacciones encontradas`);
+        return transactions;
+    }
+
+    static async processCSV(csvData) {
+        console.log('🏦 Procesando BBVA CSV...');
+        const transactions = [];
+
+        for (let row of csvData) {
+            const fecha = row.fecha || row.date;
+            const descripcion = row.descripcion || row.description || row.concepto;
+            const cargo = parseFloat((row.cargo || '0').toString().replace(/[,$]/g, '')) || 0;
+            const abono = parseFloat((row.abono || '0').toString().replace(/[,$]/g, '')) || 0;
+
+            if (fecha && descripcion && (cargo > 0 || abono > 0)) {
+                const amount = cargo || abono;
+                const transaction = new Transaction(
+                    descripcion,
+                    amount,
+                    fecha,
+                    this.categorize(descripcion),
+                    abono > 0 ? 'INGRESO' : 'GASTO',
+                    this.bankName
+                );
+                transactions.push(transaction);
+            }
+        }
+
+        console.log(`✅ BBVA CSV: ${transactions.length} transacciones`);
+        return transactions;
+    }
+
+    static parseDate(dateStr) {
+        // DD/MM/YYYY
+        const parts = dateStr.split('/');
+        return new Date(parts[2], parts[1] - 1, parts[0]);
+    }
+
+    static isIncome(description) {
+        const desc = description.toLowerCase();
+        return ['abono', 'deposito', 'nomina', 'transferencia recibida', 'devolucion']
+            .some(keyword => desc.includes(keyword));
+    }
+
+    static categorize(description) {
+        return categorizeTransaction(description);
+    }
+}
+
+// ===================
+// PROCESADOR SANTANDER
+// ===================
+class SantanderProcessor {
+    static bankName = 'Santander';
+    
+    static async processPDF(text) {
+        console.log('🔴 Procesando Santander PDF...');
+        const transactions = [];
+        const lines = text.split('\n');
+
+        for (let line of lines) {
+            line = line.trim();
+            if (line.length < 15) continue;
+
+            // Patrón Santander: DD-MMM-YYYY DESCRIPCION $MONTO
+            const pattern = /(\d{2}-[A-Z]{3}-\d{4})\s+(.+?)\s+\$\s*([\d,]+\.?\d*)/;
+            const match = line.match(pattern);
+
+            if (match) {
+                const [_, dateStr, description, amountStr] = match;
+                const amount = parseFloat(amountStr.replace(/,/g, ''));
+
+                if (!isNaN(amount) && amount > 0 && description.length > 3) {
+                    const transaction = new Transaction(
+                        description,
+                        amount,
+                        this.parseDate(dateStr),
+                        this.categorize(description),
+                        this.isIncome(description) ? 'INGRESO' : 'GASTO',
+                        this.bankName
+                    );
+                    transactions.push(transaction);
+                }
+            }
+        }
+
+        console.log(`✅ Santander: ${transactions.length} transacciones encontradas`);
+        return transactions;
+    }
+
+    static parseDate(dateStr) {
+        // DD-MMM-YYYY
+        const monthMap = {
+            'ENE': 0, 'FEB': 1, 'MAR': 2, 'ABR': 3, 'MAY': 4, 'JUN': 5,
+            'JUL': 6, 'AGO': 7, 'SEP': 8, 'OCT': 9, 'NOV': 10, 'DIC': 11
+        };
+        
+        const parts = dateStr.split('-');
+        const day = parseInt(parts[0]);
+        const month = monthMap[parts[1]];
+        const year = parseInt(parts[2]);
+        
+        return new Date(year, month, day);
+    }
+
+    static isIncome(description) {
+        const desc = description.toLowerCase();
+        return ['abono', 'deposito', 'transferencia recibida', 'devolucion', 'pago nomina']
+            .some(keyword => desc.includes(keyword));
+    }
+
+    static categorize(description) {
+        return categorizeTransaction(description);
+    }
+}
+
+// ===================
+// PROCESADOR NU BANK
+// ===================
+class NuProcessor {
+    static bankName = 'Nu';
+    
+    static async processPDF(text) {
+        console.log('💜 Procesando Nu PDF...');
+        const transactions = [];
+        const lines = text.split('\n');
+
+        for (let line of lines) {
+            line = line.trim();
+            if (line.length < 10) continue;
+
+            // Patrón Nu: DD/MM DESCRIPCION $MONTO
+            const pattern = /(\d{1,2}\/\d{1,2})\s+(.+?)\s+\$?([\d,]+\.?\d*)/;
+            const match = line.match(pattern);
+
+            if (match) {
+                const [_, dateStr, description, amountStr] = match;
+                const amount = parseFloat(amountStr.replace(/,/g, ''));
+
+                if (!isNaN(amount) && amount > 0 && description.length > 3) {
+                    const transaction = new Transaction(
+                        description,
+                        amount,
+                        this.parseDate(dateStr),
+                        this.categorize(description),
+                        this.isIncome(description) ? 'INGRESO' : 'GASTO',
+                        this.bankName
+                    );
+                    transactions.push(transaction);
+                }
+            }
+        }
+
+        console.log(`✅ Nu: ${transactions.length} transacciones encontradas`);
+        return transactions;
+    }
+
+    static parseDate(dateStr) {
+        // DD/MM (año actual)
+        const [day, month] = dateStr.split('/');
+        const currentYear = new Date().getFullYear();
+        return new Date(currentYear, parseInt(month) - 1, parseInt(day));
+    }
+
+    static isIncome(description) {
+        const desc = description.toLowerCase();
+        return ['pix recebido', 'transferencia', 'rendimento', 'cashback', 'reembolso']
+            .some(keyword => desc.includes(keyword));
+    }
+
+    static categorize(description) {
+        return categorizeTransaction(description);
+    }
+}
+
+// ===================
+// PROCESADOR BANORTE
+// ===================
+class BanorteProcessor {
+    static bankName = 'Banorte';
+    
+    static async processPDF(text) {
+        console.log('🟠 Procesando Banorte PDF...');
+        const transactions = [];
+        const lines = text.split('\n');
+
+        for (let line of lines) {
+            line = line.trim();
+            if (line.length < 15) continue;
+
+            // Patrón Banorte: DD/MM/YYYY DESCRIPCION $MONTO
+            const pattern = /(\d{1,2}\/\d{1,2}\/\d{4})\s+(.+?)\s+\$?([\d,]+\.?\d*)/;
+            const match = line.match(pattern);
+
+            if (match) {
+                const [_, dateStr, description, amountStr] = match;
+                const amount = parseFloat(amountStr.replace(/,/g, ''));
+
+                if (!isNaN(amount) && amount > 0 && description.length > 3) {
+                    const transaction = new Transaction(
+                        description,
+                        amount,
+                        BBVAProcessor.parseDate(dateStr), // Mismo formato que BBVA
+                        this.categorize(description),
+                        this.isIncome(description) ? 'INGRESO' : 'GASTO',
+                        this.bankName
+                    );
+                    transactions.push(transaction);
+                }
+            }
+        }
+
+        console.log(`✅ Banorte: ${transactions.length} transacciones encontradas`);
+        return transactions;
+    }
+
+    static isIncome(description) {
+        const desc = description.toLowerCase();
+        return ['abono', 'deposito', 'nomina', 'transferencia recibida']
+            .some(keyword => desc.includes(keyword));
+    }
+
+    static categorize(description) {
+        return categorizeTransaction(description);
+    }
+}
+
+// ===================
+// DETECTOR DE BANCO
+// ===================
+class BankDetector {
+    static detect(text, fileName = '') {
+        const content = (text + ' ' + fileName).toLowerCase();
+        
+        if (content.includes('bbva')) return BBVAProcessor;
+        if (content.includes('santander')) return SantanderProcessor;
+        if (content.includes('nu méxico') || content.includes('cuenta nu') || fileName.toLowerCase().includes('nu')) return NuProcessor;
+        if (content.includes('banorte')) return BanorteProcessor;
+        
+        console.log('⚠️ Banco no detectado, usando procesador genérico');
+        return null;
+    }
+}
+
+// ===================
+// CONSOLIDADOR PRINCIPAL
+// ===================
+class BankConsolidator {
+    constructor() {
+        this.allTransactions = [];
+        this.bankStats = {};
+        this.processedFiles = [];
+    }
+
+    async processFile(file) {
+        console.log(`📄 Procesando: ${file.name}`);
+        
+        try {
+            const fileExtension = file.name.split('.').pop().toLowerCase();
+            let transactions = [];
+            let bankName = 'Genérico';
+
+            if (fileExtension === 'pdf') {
+                const text = await this.extractPDFText(file);
+                const processor = BankDetector.detect(text, file.name);
+                
+                if (processor) {
+                    transactions = await processor.processPDF(text);
+                    bankName = processor.bankName;
+                } else {
+                    transactions = await this.processGenericPDF(text);
+                }
+
+            } else if (fileExtension === 'csv') {
+                const csvData = await this.parseCSV(file);
+                const processor = BankDetector.detect('', file.name);
+                
+                if (processor && processor.processCSV) {
+                    transactions = await processor.processCSV(csvData);
+                    bankName = processor.bankName;
+                } else {
+                    transactions = await this.processGenericCSV(csvData);
+                }
+
+            } else if (['xlsx', 'xls'].includes(fileExtension)) {
+                const excelData = await this.parseExcel(file);
+                const processor = BankDetector.detect('', file.name);
+                
+                if (processor && processor.processCSV) {
+                    transactions = await processor.processCSV(excelData);
+                    bankName = processor.bankName;
+                } else {
+                    transactions = await this.processGenericCSV(excelData);
+                }
+            }
+
+            // Agregar al consolidado
+            this.addTransactions(transactions, bankName, file.name);
+
+            return {
+                success: true,
+                transactions,
+                bankName,
+                count: transactions.length
+            };
+
+        } catch (error) {
+            console.error(`❌ Error procesando ${file.name}:`, error);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
+    }
+
+    addTransactions(transactions, bankName, fileName) {
+        this.allTransactions.push(...transactions);
+        
+        if (!this.bankStats[bankName]) {
+            this.bankStats[bankName] = {
+                count: 0,
+                files: [],
+                totalAmount: 0
+            };
+        }
+        
+        this.bankStats[bankName].count += transactions.length;
+        this.bankStats[bankName].files.push(fileName);
+        this.bankStats[bankName].totalAmount += transactions.reduce((sum, t) => sum + t.amount, 0);
+        
+        this.processedFiles.push({
+            name: fileName,
+            bank: bankName,
+            count: transactions.length,
+            date: new Date()
+        });
+    }
+
+    getConsolidatedReport() {
+        const ingresos = this.allTransactions.filter(t => t.type === 'INGRESO');
+        const gastos = this.allTransactions.filter(t => t.type === 'GASTO');
+        
+        const totalIngresos = ingresos.reduce((sum, t) => sum + t.amount, 0);
+        const totalGastos = gastos.reduce((sum, t) => sum + t.amount, 0);
+        
+        // Agrupar por categorías
+        const categoryTotals = {};
+        gastos.forEach(t => {
+            categoryTotals[t.category] = (categoryTotals[t.category] || 0) + t.amount;
+        });
+
+        return {
+            summary: {
+                totalTransactions: this.allTransactions.length,
+                totalIngresos,
+                totalGastos,
+                ahorroReal: totalIngresos - totalGastos,
+                porcentajeAhorro: totalIngresos > 0 ? ((totalIngresos - totalGastos) / totalIngresos * 100) : 0,
+                banksProcessed: Object.keys(this.bankStats).length,
+                filesProcessed: this.processedFiles.length
+            },
+            categoryTotals,
+            bankStats: this.bankStats,
+            processedFiles: this.processedFiles,
+            allTransactions: this.allTransactions
+        };
+    }
+
+    // Métodos auxiliares
+    async extractPDFText(file) {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+        
+        let fullText = '';
+        for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+            const pageText = textContent.items.map(item => item.str).join(' ');
+            fullText += pageText + '\n';
+        }
+        
+        return fullText;
+    }
+
+    async parseCSV(file) {
+        const text = await file.text();
+        const lines = text.split('\n').filter(line => line.trim());
+        
+        if (lines.length < 2) return [];
+        
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''));
+        const data = [];
+        
+        for (let i = 1; i < lines.length; i++) {
+            const values = this.parseCSVLine(lines[i]);
+            const row = {};
+            headers.forEach((header, index) => {
+                row[header] = values[index]?.replace(/"/g, '') || '';
+            });
+            data.push(row);
+        }
+        
+        return data;
+    }
+
+    parseCSVLine(line) {
+        const result = [];
+        let current = '';
+        let inQuotes = false;
+        
+        for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            
+            if (char === '"') {
+                inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+                result.push(current.trim());
+                current = '';
+            } else {
+                current += char;
+            }
+        }
+        
+        result.push(current.trim());
+        return result;
+    }
+
+    async parseExcel(file) {
+        const data = await file.arrayBuffer();
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        
+        if (jsonData.length < 2) return [];
+        
+        const headers = jsonData[0].map(h => String(h || '').trim().toLowerCase());
+        const data_rows = [];
+        
+        for (let i = 1; i < jsonData.length; i++) {
+            if (jsonData[i] && jsonData[i].length > 0) {
+                const row = {};
+                headers.forEach((header, index) => {
+                    row[header] = jsonData[i][index] || '';
+                });
+                data_rows.push(row);
+            }
+        }
+        
+        return data_rows;
+    }
+
+    async processGenericPDF(text) {
+        console.log('🔧 Usando procesador genérico para PDF...');
+        const transactions = [];
+        const lines = text.split('\n');
+        
+        for (let line of lines) {
+            line = line.trim();
+            if (line.length < 10) continue;
+            
+            // Intentar varios patrones de fecha
+            const datePatterns = [
+                /(\d{1,2}\/\d{1,2}\/\d{4})/,
+                /(\d{1,2}-\d{1,2}-\d{4})/,
+                /(\d{1,2} [A-Z]{3} \d{4})/
+            ];
+            
+            let dateFound = null;
+            for (const pattern of datePatterns) {
+                const match = line.match(pattern);
+                if (match) {
+                    dateFound = match[1];
+                    break;
+                }
+            }
+            
+            if (dateFound && line.includes('$')) {
+                const amountMatch = line.match(/\$?([\d,]+\.?\d*)/);
+                
+                if (amountMatch) {
+                    const amount = parseFloat(amountMatch[1].replace(/,/g, ''));
+                    if (!isNaN(amount) && amount > 0) {
+                        const description = line
+                            .replace(dateFound, '')
+                            .replace(amountMatch[0], '')
+                            .trim();
+                        
+                        if (description.length > 5) {
+                            const transaction = new Transaction(
+                                description,
+                                amount,
+                                new Date(dateFound),
+                                categorizeTransaction(description),
+                                this.isGenericIncome(description) ? 'INGRESO' : 'GASTO',
+                                'Genérico'
+                            );
+                            transactions.push(transaction);
+                        }
+                    }
+                }
+            }
+        }
+        
+        console.log(`✅ Genérico: ${transactions.length} transacciones`);
+        return transactions;
+    }
+
+    async processGenericCSV(csvData) {
+        console.log('🔧 Usando procesador genérico para CSV...');
+        const transactions = [];
+        
+        if (csvData.length === 0) return transactions;
+        
+        const firstRow = csvData[0];
+        const headers = Object.keys(firstRow);
+        
+        // Buscar columnas comunes
+        const descField = headers.find(h => 
+            ['descripcion', 'concepto', 'description', 'merchant', 'comercio'].some(field => 
+                h.toLowerCase().includes(field)
+            )
+        );
+        
+        const amountField = headers.find(h => 
+            ['monto', 'importe', 'amount', 'cantidad', 'cargo', 'abono'].some(field => 
+                h.toLowerCase().includes(field)
+            )
+        );
+        
+        const dateField = headers.find(h => 
+            ['fecha', 'date', 'dia'].some(field => 
+                h.toLowerCase().includes(field)
+            )
+        );
+        
+        if (descField && amountField && dateField) {
+            for (let row of csvData) {
+                const amount = parseFloat(String(row[amountField] || '0').replace(/[,$]/g, ''));
+                if (amount > 0) {
+                    const transaction = new Transaction(
+                        row[descField] || 'Sin descripción',
+                        amount,
+                        row[dateField],
+                        categorizeTransaction(row[descField] || ''),
+                        this.isGenericIncome(row[descField] || '') ? 'INGRESO' : 'GASTO',
+                        'Genérico'
+                    );
+                    transactions.push(transaction);
+                }
+            }
+        }
+        
+        console.log(`✅ Genérico CSV: ${transactions.length} transacciones`);
+        return transactions;
+    }
+
+    isGenericIncome(description) {
+        const desc = description.toLowerCase();
+        return ['abono', 'deposito', 'transferencia recibida', 'nomina', 'salario', 'intereses']
+            .some(keyword => desc.includes(keyword));
+    }
+
+    reset() {
+        this.allTransactions = [];
+        this.bankStats = {};
+        this.processedFiles = [];
+    }
+}
+
+// Función de categorización global (reutiliza tu lógica existente)
+function categorizeTransaction(description) {
+    const desc = description.toLowerCase();
+    
+    const categories = {
+        'Alimentación': ['supermercado', 'mercado', 'abarrotes', 'walmart', 'soriana', 'oxxo', 'seven'],
+        'Restaurantes': ['restaurante', 'comida', 'food', 'burger', 'pizza', 'starbucks', 'mc', 'kfc'],
+        'Transporte': ['gasolina', 'uber', 'taxi', 'metro', 'pemex', 'parking', 'didi'],
+        'Entretenimiento': ['cine', 'netflix', 'spotify', 'gym', 'deporte', 'juego'],
+        'Servicios': ['luz', 'agua', 'telefono', 'internet', 'cfe', 'telmex', 'izzi'],
+        'Salud': ['farmacia', 'hospital', 'doctor', 'medicina', 'dental'],
+        'Compras': ['amazon', 'liverpool', 'palacio', 'tienda', 'mercadolibre'],
+        'Efectivo': ['atm', 'cajero', 'retiro', 'efectivo', 'cash'],
+        'Transferencias': ['spei', 'transferencia', 'pago cuenta']
+    };
+    
+    for (const [category, keywords] of Object.entries(categories)) {
+        if (keywords.some(keyword => desc.includes(keyword))) {
+            return category;
+        }
+    }
+    
+    return 'Otros';
+}
+
+// Exportar para uso global
+window.BankConsolidator = BankConsolidator;
+window.Transaction = Transaction;
+
+console.log('🏗️ Sistema modular de bancos cargado correctamente');
     </script>
 </body>
 </html>
